@@ -1,0 +1,1824 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Bitácora de Compras</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@500&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<style>
+  :root{
+    --navy:#16374E; --navy-2:#1E4560; --ink:#182430; --muted:#64748B; --line:#E2E8F0;
+    --bg:#F3F6F8; --card:#FFFFFF;
+    --sabbag:#1B3A63; --sabbag-soft:#EAF0F8;
+    --ciclotron:#0FA9C7; --ciclotron-soft:#E7F8FB;
+    --ok:#1F8F5F; --ok-soft:#E5F5EC;
+    --warn:#B9740E; --warn-soft:#FBF0DD;
+    --bad:#B23B2E; --bad-soft:#FBEAE7;
+    --neutral:#5B6B7A; --neutral-soft:#EEF1F4;
+    box-sizing:border-box;
+    padding-top: env(safe-area-inset-top,0px);
+    padding-bottom: env(safe-area-inset-bottom,0px);
+  }
+  *,*:before,*:after{box-sizing:inherit}
+  html{scroll-padding-top: env(safe-area-inset-top,0px)}
+  body{margin:0;font-family:'Inter',system-ui,sans-serif;background:var(--bg);color:var(--ink);height:100%}
+  html,body{height:100%}
+  @media (prefers-color-scheme: dark){ :root:not([data-theme="light"]){ } }
+  .mono{font-family:'IBM Plex Mono',monospace}
+  button{font-family:inherit}
+  a{color:inherit}
+
+  #shell{display:flex;min-height:100%}
+  #sidebar{
+    width:236px;flex:0 0 236px;background:var(--navy);color:#fff;
+    display:flex;flex-direction:column;padding:20px 14px;gap:2px;
+    overflow:hidden;white-space:nowrap;transition:width .18s ease, padding .18s ease, flex-basis .18s ease;
+  }
+  body.sidebar-collapsed #sidebar{width:0;flex:0 0 0;padding-left:0;padding-right:0;border:none}
+  #sidebarToggle{
+    flex:0 0 auto;border:1px solid var(--line);background:#fff;border-radius:8px;width:32px;height:32px;
+    display:flex;align-items:center;justify-content:center;cursor:pointer;color:var(--muted);
+  }
+  #sidebarToggle:hover{color:var(--ink);border-color:#c7d2dc}
+  #sidebarToggle svg{width:16px;height:16px;transition:transform .18s ease}
+  body.sidebar-collapsed #sidebarToggle svg{transform:rotate(180deg)}
+  .brand{padding:2px 8px 18px;font-weight:800;font-size:17px;letter-spacing:.2px}
+  .brand small{display:block;font-weight:500;font-size:11.5px;color:#9FB6C9;margin-top:2px}
+  .nav-item{
+    display:flex;align-items:center;gap:10px;padding:9px 10px;border-radius:8px;
+    color:#CBD9E4;text-decoration:none;font-size:13.5px;font-weight:500;cursor:pointer;
+    border:none;background:none;width:100%;text-align:left;
+  }
+  .nav-item svg{flex:0 0 18px;width:18px;height:18px;opacity:.9}
+  .nav-item:hover{background:rgba(255,255,255,.06);color:#fff}
+  .nav-item.active{background:rgba(255,255,255,.12);color:#fff}
+  .nav-sep{height:1px;background:rgba(255,255,255,.12);margin:10px 4px}
+  .nav-label{font-size:10.5px;color:#7C93A6;padding:10px 10px 4px;font-weight:600}
+  .nav-group-head{
+    display:flex;align-items:center;gap:6px;padding:9px 10px;border-radius:8px;
+    color:#fff;font-size:12.5px;font-weight:700;cursor:pointer;border:none;background:none;
+    width:100%;text-align:left;text-transform:none;margin-top:8px;
+  }
+  .nav-group-head:first-of-type{margin-top:0}
+  .nav-group-head .chev{width:13px;height:13px;transition:transform .15s;flex:0 0 13px}
+  .nav-group-head.active .chev{transform:rotate(90deg)}
+  .nav-group-head:hover{background:rgba(255,255,255,.06)}
+  .nav-group{padding-left:2px}
+  #sidebar .spacer{flex:1}
+  .usuario-box{padding:10px;font-size:11.5px;color:#9FB6C9;border-top:1px solid rgba(255,255,255,.12);margin-top:6px}
+  .usuario-box #usuarioRol{color:#7C93A6;font-weight:400}
+
+  #main{flex:1;display:flex;flex-direction:column;min-width:0}
+  #topbar{
+    display:flex;align-items:center;gap:16px;padding:12px 22px;background:#fff;
+    border-bottom:1px solid var(--line);position:sticky;top:0;z-index:5;
+  }
+  .company-switch{display:flex;background:var(--bg);border-radius:9px;padding:3px;gap:2px}
+  .company-btn{
+    border:none;background:none;padding:7px 14px;border-radius:7px;font-size:13px;font-weight:600;
+    cursor:pointer;color:var(--muted);display:flex;align-items:center;gap:7px;
+  }
+  .company-dot{width:8px;height:8px;border-radius:50%}
+  .company-btn.active{background:#fff;box-shadow:0 1px 3px rgba(20,40,60,.12)}
+  .company-btn[data-c="sabbag"].active{color:var(--sabbag)}
+  .company-btn[data-c="ciclotron"].active{color:var(--ciclotron)}
+  #topbar .spacer{flex:1}
+  .top-title{font-size:14.5px;color:var(--muted)}
+  .top-title b{color:var(--ink)}
+
+  #content{flex:1;padding:22px 26px 60px;overflow:auto;min-width:0}
+  .page-head{display:flex;align-items:baseline;justify-content:space-between;gap:14px;margin-bottom:18px;flex-wrap:wrap}
+  .page-head h1{font-size:21px;margin:0;font-weight:700}
+  .page-head .sub{color:var(--muted);font-size:13px;margin-top:3px}
+  .actions{display:flex;gap:8px;flex-wrap:wrap}
+
+  .btn{border:1px solid var(--line);background:#fff;padding:8px 13px;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;color:var(--ink);display:inline-flex;align-items:center;gap:6px}
+  .btn:hover{border-color:#c7d2dc}
+  .btn.primary{background:var(--navy);border-color:var(--navy);color:#fff}
+  .btn.primary:hover{background:var(--navy-2)}
+  .btn.ghost{border-color:transparent;background:transparent}
+  .btn.danger{color:var(--bad)}
+  .btn:disabled{opacity:.5;cursor:default}
+  .btn svg{width:14px;height:14px}
+
+  .card{background:var(--card);border:1px solid var(--line);border-radius:11px}
+  .kpi-row{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:12px;margin-bottom:20px}
+  .kpi{padding:15px 16px;background:#fff;border:1px solid var(--line);border-radius:11px}
+  .kpi .n{font-size:26px;font-weight:800;line-height:1.1}
+  .kpi .l{font-size:12px;color:var(--muted);margin-top:4px}
+
+  .filters{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px;align-items:center}
+  .filters input[type=text], .filters select{
+    border:1px solid var(--line);border-radius:8px;padding:8px 10px;font-size:13px;font-family:inherit;background:#fff;color:var(--ink)
+  }
+  .filters input[type=text]{min-width:200px}
+
+  table{width:100%;border-collapse:collapse;font-size:13.2px}
+  thead th{text-align:left;color:var(--muted);font-weight:600;font-size:11.5px;padding:8px 12px;border-bottom:1px solid var(--line);white-space:nowrap}
+  thead th.sortable{cursor:pointer;user-select:none}
+  thead th.sortable:hover{color:var(--ink)}
+  tbody td{padding:10px 12px;border-bottom:1px solid #EEF1F4;vertical-align:middle;text-align:left}
+  tbody tr{cursor:pointer}
+  tbody tr:hover{background:#F8FAFB}
+  .table-wrap{overflow-x:auto;border-radius:11px;border:1px solid var(--line);background:#fff}
+  .num{font-weight:600}
+  .muted{color:var(--muted)}
+  .empty-state{padding:50px 20px;text-align:center;color:var(--muted)}
+  .empty-state .big{font-size:15px;color:var(--ink);font-weight:600;margin-bottom:6px}
+
+  .badge{display:inline-flex;align-items:center;gap:5px;padding:3px 9px;border-radius:100px;font-size:11.5px;font-weight:600;white-space:nowrap}
+  .badge .d{width:6px;height:6px;border-radius:50%}
+  .b-ok{background:var(--ok-soft);color:var(--ok)}
+  .b-warn{background:var(--warn-soft);color:var(--warn)}
+  .b-bad{background:var(--bad-soft);color:var(--bad)}
+  .b-neutral{background:var(--neutral-soft);color:var(--neutral)}
+
+  .detail-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px;align-items:start}
+  @media (max-width:920px){.detail-grid{grid-template-columns:1fr}}
+  .detail-grid-doc{display:grid;grid-template-columns:1.5fr 1fr;gap:20px;align-items:start}
+  @media (max-width:980px){.detail-grid-doc{grid-template-columns:1fr}}
+  .field-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:14px 18px;padding:18px}
+  .field-grid .f label{display:block;font-size:11px;color:var(--muted);margin-bottom:3px;font-weight:600}
+  .field-grid .f .v{font-size:13.8px;font-weight:500}
+  .section-title{font-size:12.5px;font-weight:700;color:var(--muted);padding:14px 18px 6px;border-top:1px solid var(--line)}
+  .section-title:first-child{border-top:none}
+
+  .rel-chip{display:inline-flex;align-items:center;gap:6px;border:1px solid var(--line);background:#fafcfd;padding:6px 11px;border-radius:8px;font-size:12.5px;cursor:pointer;margin:0 6px 6px 0}
+  .rel-chip:hover{border-color:#c7d2dc;background:#fff}
+  .rel-chip .t{font-size:10.5px;color:var(--muted)}
+
+  .timeline{padding:4px 18px 18px}
+  .tl-item{display:flex;gap:10px;padding:10px 0;border-bottom:1px dashed #E8EDF1}
+  .tl-item:last-child{border-bottom:none}
+  .tl-dot{width:8px;height:8px;border-radius:50%;background:var(--navy-2);margin-top:6px;flex:0 0 8px}
+  .tl-body{flex:1;font-size:13px}
+  .tl-meta{color:var(--muted);font-size:11.5px;margin-top:2px}
+
+  .side-card{padding:16px 18px}
+  .side-card h3{font-size:13px;margin:0 0 10px;font-weight:700}
+  select.estado-select{width:100%;padding:9px 10px;border-radius:8px;border:1px solid var(--line);font-size:13px;font-family:inherit;margin-bottom:8px}
+  textarea.nota-input{width:100%;padding:9px 10px;border-radius:8px;border:1px solid var(--line);font-size:13px;font-family:inherit;min-height:64px;resize:vertical;margin-bottom:8px}
+
+  .modal-backdrop{position:fixed;inset:0;background:rgba(20,30,40,.4);display:flex;align-items:center;justify-content:center;z-index:50;padding:20px}
+  .modal{background:#fff;border-radius:13px;max-width:480px;width:100%;max-height:86vh;overflow:auto;padding:22px}
+  .modal.wide{max-width:1220px}
+  .modal h2{margin:0 0 4px;font-size:16.5px}
+  .modal p.sub{color:var(--muted);font-size:12.5px;margin:0 0 16px}
+  .modal-head{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;margin-bottom:14px}
+  .modal-close{background:none;border:none;font-size:22px;line-height:1;cursor:pointer;color:var(--muted);padding:2px 6px;border-radius:6px}
+  .modal-close:hover{background:var(--bg);color:var(--ink)}
+  .field-grid .f.editing input, .field-grid .f.editing select{width:100%;padding:6px 8px;border:1px solid var(--line);border-radius:6px;font-size:13px;font-family:inherit}
+  .item-actions-cell{white-space:nowrap;text-align:right}
+  .icon-actions{display:inline-flex;align-items:center;gap:9px}
+  .icon-btn{background:none;border:none;cursor:pointer;color:var(--ink);display:inline-flex;align-items:center;justify-content:center;width:28px;height:28px;border-radius:7px;padding:0}
+  .icon-btn svg{width:17px;height:17px}
+  .icon-btn:hover{background:var(--bg);color:var(--navy-2)}
+  .icon-btn.gestion{color:#3E6FA3}
+  .icon-btn.gestion:hover{background:#EAF1F8;color:#325A85}
+  .icon-btn.ver{color:#3FA871}
+  .icon-btn.ver:hover{background:#E8F6EE;color:#33875C}
+  .icon-divider{width:1px;height:16px;background:var(--line)}
+  .field{margin-bottom:12px}
+  .field label{display:block;font-size:12px;font-weight:600;margin-bottom:5px}
+  .field input, .field select{width:100%;padding:9px 10px;border:1px solid var(--line);border-radius:8px;font-size:13px;font-family:inherit}
+  .drop{border:1.5px dashed #C7D2DC;border-radius:10px;padding:26px;text-align:center;color:var(--muted);font-size:13px;cursor:pointer}
+  .drop.over{border-color:var(--navy);background:#F5F9FC}
+  .drop input{display:none}
+
+  .import-summary{background:var(--neutral-soft);border-radius:9px;padding:12px 14px;font-size:12.8px;margin-top:12px;line-height:1.7}
+  .import-summary b{color:var(--ink)}
+  .toast{position:fixed;bottom:22px;right:22px;background:var(--navy);color:#fff;padding:12px 16px;border-radius:9px;font-size:13px;box-shadow:0 8px 24px rgba(20,40,60,.25);z-index:80;max-width:340px}
+  .toast.err{background:var(--bad)}
+  .barmini{height:6px;border-radius:4px;background:var(--neutral-soft);overflow:hidden;display:flex;margin-top:6px}
+  .barmini span{height:100%}
+  .link-btn{background:none;border:none;color:var(--navy-2);font-weight:600;font-size:12.5px;cursor:pointer;padding:0;text-decoration:underline}
+  .warn-box{background:var(--warn-soft);color:#7A5106;border-radius:9px;padding:10px 13px;font-size:12.5px;margin-bottom:12px}
+</style>
+</head>
+<body>
+<div id="shell">
+  <div id="sidebar">
+    <div class="brand">Bitácora de Compras<small>Sabbag · Ciclotron · build 2026-09-26-v17</small></div>
+
+    <button class="nav-group-head active" data-group="compras">
+      <svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 6l6 6-6 6"/></svg>
+      Gestión de compras
+    </button>
+    <div class="nav-group" id="group-compras">
+      <button class="nav-item" data-route="dashboard">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="3" width="8" height="8" rx="1.5"/><rect x="13" y="3" width="8" height="5" rx="1.5"/><rect x="13" y="11" width="8" height="10" rx="1.5"/><rect x="3" y="14" width="8" height="7" rx="1.5"/></svg>
+        Panel
+      </button>
+      <div class="nav-label">Documentos</div>
+      <button class="nav-item" data-route="sc">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M9 3h6l4 4v14H5V3z"/><path d="M9 12h6M9 16h6M9 8h2"/></svg>
+        Solicitudes
+      </button>
+      <button class="nav-item" data-route="oc">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 4h16v5H4z"/><path d="M6 9v11h12V9M9 13h6"/></svg>
+        Órdenes de Compra
+      </button>
+      <button class="nav-item" data-route="rar">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M21 8l-9-5-9 5 9 5 9-5z"/><path d="M3 8v8l9 5 9-5V8M12 13v8"/></svg>
+        Recepciones (RAR)
+      </button>
+      <button class="nav-item" data-route="fact">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M6 3h9l3 3v15H6z"/><path d="M9 9h6M9 13h6M9 17h4"/></svg>
+        Facturación
+      </button>
+      <div class="nav-sep"></div>
+      <button class="nav-item" data-route="importar">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 3v12M7 10l5 5 5-5"/><path d="M4 19h16"/></svg>
+        Importar Excel
+      </button>
+    </div>
+
+    <button class="nav-group-head" data-group="alistamiento">
+      <svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 6l6 6-6 6"/></svg>
+      Alistamiento de facturas
+    </button>
+    <div class="nav-group" id="group-alistamiento" style="display:none">
+      <button class="nav-item" data-route="alistamiento">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M20 6L9 17l-5-5"/></svg>
+        Entrega a Contabilidad
+      </button>
+    </div>
+
+    <div class="spacer"></div>
+    <div class="usuario-box">Sesión de<br><b id="usuarioNombre" style="color:#fff">—</b><span id="usuarioRol"></span></div>
+  </div>
+
+  <div id="main">
+    <div id="topbar">
+      <button id="sidebarToggle" title="Mostrar/ocultar panel">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 5l-7 7 7 7"/></svg>
+      </button>
+      <div class="company-switch" id="companySwitch">
+        <button class="company-btn" data-c="sabbag"><span class="company-dot" style="background:var(--sabbag)"></span>Sabbag Radiólogos</button>
+        <button class="company-btn" data-c="ciclotron"><span class="company-dot" style="background:var(--ciclotron)"></span>Ciclotron Caribe</button>
+      </div>
+      <div class="spacer"></div>
+      <div class="top-title" id="dbStatus">Conectando…</div>
+    </div>
+    <div id="content"></div>
+  </div>
+</div>
+<div id="modalRoot"></div>
+<div id="descPopoverRoot"></div>
+
+<script>
+/* ============================================================
+   CONFIGURACIÓN GENERAL
+   ============================================================ */
+const EMPRESAS = {
+  sabbag:    { label: 'Sabbag Radiólogos', color: 'var(--sabbag)', soft: 'var(--sabbag-soft)' },
+  ciclotron: { label: 'Ciclotron Caribe',  color: 'var(--ciclotron)', soft: 'var(--ciclotron-soft)' },
+};
+
+// íconos de acción para cada registro de un listado: Gestión (estado/novedad/bitácora) y Ver detalle
+const ICON_GESTION = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="14.31" y1="8" x2="20.05" y2="17.94"/><line x1="9.69" y1="8" x2="21.17" y2="8"/><line x1="7.38" y1="12" x2="13.12" y2="2.06"/><line x1="9.69" y1="16" x2="3.95" y2="6.06"/><line x1="14.31" y1="16" x2="2.83" y2="16"/><line x1="16.62" y1="12" x2="10.88" y2="21.94"/></svg>`;
+const ICON_VER = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>`;
+// ícono para "ver descripción completa" (columnas de texto largo en tablas de ítems)
+const ICON_TEXTO = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 3v5a2 2 0 0 0 2 2h5"/><path d="M6 3h8l6 6v10a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2z"/><line x1="8" y1="13" x2="16" y2="13"/><line x1="8" y1="17" x2="14" y2="17"/></svg>`;
+
+// popover simple (independiente de #modalRoot, para no cerrar el modal de fondo) para textos largos como Descripción
+function mostrarDescripcionTooltip(btn){
+  const texto = btn.dataset.desc || '';
+  let root = document.getElementById('descPopoverRoot');
+  if (!root){ root = document.createElement('div'); root.id = 'descPopoverRoot'; document.body.appendChild(root); }
+  root.innerHTML = `<div class="modal-backdrop" style="z-index:90" id="descBackdrop">
+    <div class="modal" style="max-width:520px">
+      <div class="modal-head">
+        <h2 style="margin:0;font-size:14.5px">Descripción</h2>
+        <button class="modal-close" id="btnCerrarDesc">✕</button>
+      </div>
+      <div style="padding:2px 2px 6px;font-size:13.5px;white-space:pre-wrap;line-height:1.5">${esc(texto) || '<span class="muted">Sin descripción.</span>'}</div>
+    </div>
+  </div>`;
+  document.getElementById('descBackdrop').addEventListener('click', (e)=>{ if (e.target.id==='descBackdrop') root.innerHTML=''; });
+  document.getElementById('btnCerrarDesc').addEventListener('click', ()=>{ root.innerHTML=''; });
+}
+
+// tono visual de cada estado -> clase de badge
+const TONE = {
+  // positivo / cerrado
+  'Aprobada':'ok', 'Cerrada':'ok', 'Recepción completa':'ok', 'Pagada':'ok', 'Con OC generada':'ok',
+  // en curso / atención
+  'Pendiente':'warn', 'Abierta':'warn', 'Parcialmente recibida':'warn', 'Recepción parcial':'warn',
+  'Registrada':'neutral', 'Enviada a contabilidad':'warn',
+  // negativo
+  'Rechazada':'bad', 'Cancelada':'bad', 'Anulada':'bad',
+};
+
+const TIPOS = {
+  sc: {
+    key:'sc', coleccion:'solicitudes', singular:'Solicitud', plural:'Solicitudes de compra',
+    numField:'nro_sc', fechaField:'fecha_sc', estadoCol:'estado_sc',
+    sheets:{cab:'cab_sc', det:'det_sc'},
+    estadosSugeridos: ['Pendiente aprobación','Aprobada','Rechazada','Con OC generada','Cancelada'],
+    cabCols: ['id_sc_cab','nro_sc','fecha_sc','solicitante','nota','subsidiaria','quien_autoriza','estado_sc'],
+    detCols: ['id_sc_det','id_sc_cab','nro_sc','item_articulo','cantidad_sc','departamento','subdepartamento','ubicacion','descripcion'],
+    cabFields: [
+      {k:'nro_sc', l:'N° Solicitud'}, {k:'fecha_sc', l:'Fecha', fmt:'date'},
+      {k:'solicitante', l:'Solicitante'}, {k:'quien_autoriza', l:'Autoriza'},
+      {k:'nota', l:'Nota', wide:true},
+    ],
+    detCabLabel: ['item_articulo','cantidad_sc','departamento','subdepartamento','ubicacion','descripcion'],
+    detHeaders: ['Artículo','Cant.','Depto','Subdepto','Ubicación','Descripción'],
+    listCols: [
+      {k:'nro_sc', l:'N° Solicitud', cls:'num'},
+      {k:'fecha_sc', l:'Fecha', fmt:'date'},
+      {k:'solicitante', l:'Solicitante'},
+      {k:'_itemCount', l:'Ítems'},
+      {k:'_ocCount', l:'OC vinculadas'},
+      {k:'_ocCompletas', l:'OC completas'},
+      {k:'_ocPendientes', l:'OC pendientes'},
+    ],
+    idFrom: (cab)=> cab.nro_sc,
+    origenField: 'id_sc_cab',
+  },
+  oc: {
+    key:'oc', coleccion:'ordenes', singular:'Orden de Compra', plural:'Órdenes de Compra',
+    numField:'nro_oc', fechaField:'fecha_oc', estadoCol:'estado_oc',
+    sheets:{cab:'cab_oc', det:'det_oc'},
+    estadosSugeridos: ['Pendiente aprobación','Aprobada','Recepción parcial','Totalmente facturada','Cerrada','Cancelada'],
+    cabCols: ['id_oc_cab','nro_oc','id_sc_cab','fecha_oc','proveedor','subsidiaria','nota','valor_total','quien_aprueba','estado_oc'],
+    detCols: ['id_oc_det','id_oc_cab','id_sc_det','nro_oc','item_articulo','cantidad_oc','valor_unit_antes_iva','valor_antes_iva','iva_%','valor_total_item_oc','departamento','subdepartamento','ubicacion','descripcion'],
+    cabFields: [
+      {k:'nro_oc', l:'N° OC'}, {k:'fecha_oc', l:'Fecha', fmt:'date'},
+      {k:'proveedor', l:'Proveedor'}, {k:'quien_aprueba', l:'Aprueba'},
+      {k:'valor_total', l:'Valor total', fmt:'money'},
+      {k:'nota', l:'Nota', wide:true},
+    ],
+    detCabLabel: ['item_articulo','cantidad_oc','valor_unit_antes_iva','valor_antes_iva','iva_%','valor_total_item_oc'],
+    detHeaders: ['Artículo','Cant.','Vlr. unitario','Vlr. antes IVA','IVA %','Vlr. total'],
+    extraDetCols: [
+      {k:'_cantRecibida', l:'Cant. recibida (RAR)'},
+      {k:'_valorRecibido', l:'Vlr. recibido (RAR)', fmt:'money'},
+      {k:'_cantPendiente', l:'Cant. pendiente'},
+    ],
+    // datos manuales adicionales por ítem (no vienen del Excel): moneda y valor originales de la compra.
+    // se preservan al reimportar (mergeDetalle) y se agregan (suman) en la cabecera de la OC.
+    itemExtraFields: [
+      {k:'moneda_original', l:'Moneda original', type:'select', options:['Dólar','Euro']},
+      {k:'valor_original', l:'Valor original', type:'money'},
+    ],
+    listCols: [
+      {k:'nro_oc', l:'N° OC', cls:'num'},
+      {k:'fecha_oc', l:'Fecha', fmt:'date'},
+      {k:'proveedor', l:'Proveedor'},
+      {k:'valor_total', l:'Valor total', fmt:'money'},
+      {k:'_scLabel', l:'Solicitud'},
+    ],
+    idFrom: (cab)=> cab.nro_oc,
+    origenField: 'id_oc_cab',
+  },
+  rar: {
+    key:'rar', coleccion:'recepciones', singular:'Recepción (RAR)', plural:'Recepciones (RAR)',
+    numField:'nro_rar', fechaField:'fecha_rar', estadoCol:null,
+    sheets:{cab:'cab_rar', det:'det_rar'},
+    estadosSugeridos: ['Registrada','Recepción parcial','Recepción completa'],
+    cabCols: ['id_rar_cab','id_oc_cab','nro_rar','fecha_rar','quien_recepciona','valor_total_rar'],
+    detCols: ['id_rar_det','id_rar_cab','id_oc_det','nro_rar','item_articulo','cantidad_rar','valor_unit_rar_antes_iva','valor_rar_antes_iva','iva_%','valor_iva_rar','valor_total_item_rar'],
+    cabFields: [
+      {k:'nro_rar', l:'N° RAR'}, {k:'fecha_rar', l:'Fecha', fmt:'date'},
+      {k:'quien_recepciona', l:'Recepciona'},
+      {k:'valor_total_rar', l:'Valor total', fmt:'money'},
+    ],
+    detCabLabel: ['item_articulo','cantidad_rar','valor_unit_rar_antes_iva','valor_rar_antes_iva','iva_%','valor_total_item_rar'],
+    detHeaders: ['Artículo','Cant. recibida','Vlr. unitario','Vlr. antes IVA','IVA %','Vlr. total'],
+    listCols: [
+      {k:'nro_rar', l:'N° RAR', cls:'num'},
+      {k:'fecha_rar', l:'Fecha', fmt:'date'},
+      {k:'quien_recepciona', l:'Recepciona'},
+      {k:'valor_total_rar', l:'Valor total', fmt:'money'},
+      {k:'_ocLabel', l:'OC'},
+    ],
+    idFrom: (cab)=> cab.nro_rar,
+    origenField: 'id_rar_cab',
+  },
+  fact: {
+    key:'fact', coleccion:'facturas', singular:'Factura', plural:'Facturación',
+    numField:'nro_fact_netsuite', fechaField:'fecha_fact_netsuite', estadoCol:null,
+    sheets:{cab:'cab_fact', det:'det_fact'},
+    estadosSugeridos: ['Registrada','Enviada a contabilidad','Pagada','Anulada'],
+    cabCols: ['id_fact_cab','id_rar_cab','nro_fact_proveedor','nro_fact_netsuite','fecha_fact_netsuite','quien_factura','valor_fact_antes_iva','iva_fact','valor_total_fact','suma_retencion','valor_pago'],
+    detCols: ['id_fact_det','id_fact_cab','id_rar_det','id_oc_det','nro_fact_netsuite','item_articulo','cantidad_fact','valor_fact_antes_iva','iva_fact','valor_total_fact','suma_retencion','valor_pago'],
+    cabFields: [
+      {k:'nro_fact_netsuite', l:'N° Factura (Netsuite)'}, {k:'nro_fact_proveedor', l:'N° Factura proveedor'},
+      {k:'fecha_fact_netsuite', l:'Fecha', fmt:'date'}, {k:'quien_factura', l:'Registrada por'},
+      {k:'valor_total_fact', l:'Valor total', fmt:'money'}, {k:'valor_pago', l:'Valor a pagar', fmt:'money'},
+      {k:'suma_retencion', l:'Retención', fmt:'money'},
+    ],
+    detCabLabel: ['item_articulo','cantidad_fact','valor_fact_antes_iva','iva_fact','valor_total_fact'],
+    detHeaders: ['Artículo','Cant.','Vlr. antes IVA','IVA','Vlr. total'],
+    listCols: [
+      {k:'nro_fact_netsuite', l:'N° Factura', cls:'num'},
+      {k:'fecha_fact_netsuite', l:'Fecha', fmt:'date'},
+      {k:'valor_total_fact', l:'Valor total', fmt:'money'},
+      {k:'_rarLabel', l:'RAR / OC'},
+    ],
+    idFrom: (cab)=> cab.nro_fact_netsuite || cab.nro_fact_proveedor,
+    origenField: 'id_fact_cab',
+  },
+};
+
+/* ============================================================
+   ESTADO DE LA APP
+   ============================================================ */
+const state = {
+  empresa: localStorage.getItem('compras_empresa') || 'sabbag',
+  route: 'dashboard',
+  routeArg: null,
+  db: null,
+  downloadsCap: null,
+  userCap: null,
+  me: null,
+  estadosCatalog: null,
+  cache: {}, // coleccion -> array de docs (para la empresa activa)
+};
+
+function fmtMoney(v){
+  if (v===null || v===undefined || v==='') return '—';
+  const n = Number(v); if (isNaN(n)) return String(v);
+  return '$' + n.toLocaleString('es-CO', {maximumFractionDigits:0});
+}
+function fmtDate(v){
+  if (!v) return '—';
+  let d = v instanceof Date ? v : new Date(v);
+  if (isNaN(d.getTime())) return String(v);
+  return d.toLocaleDateString('es-CO', {day:'2-digit', month:'short', year:'numeric'});
+}
+function fmtDateTime(v){
+  let d = v instanceof Date ? v : new Date(v);
+  if (isNaN(d.getTime())) return '';
+  return d.toLocaleDateString('es-CO',{day:'2-digit',month:'short',year:'numeric'}) + ' · ' + d.toLocaleTimeString('es-CO',{hour:'2-digit',minute:'2-digit'});
+}
+function slugId(s){ return String(s==null?'':s).trim().replace(/[^A-Za-z0-9_-]+/g,'-').replace(/^-+|-+$/g,'') || 'sr'; }
+function periodFrom(dateVal){
+  let d = dateVal instanceof Date ? dateVal : new Date(dateVal);
+  if (isNaN(d.getTime())) return 'sf';
+  return d.getFullYear() + String(d.getMonth()+1).padStart(2,'0');
+}
+function mapSubsidiaria(raw){
+  const s = String(raw||'').toUpperCase();
+  if (s.includes('SABBAG')) return 'sabbag';
+  if (s.includes('CICLOTRON')) return 'ciclotron';
+  return null;
+}
+// el almacenamiento solo acepta JSON plano: convierte fechas (y cualquier otro tipo no-plano) a texto
+function toPlainJSON(v){
+  return JSON.parse(JSON.stringify(v));
+}
+function esc(s){ return String(s==null?'':s).replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+function toast(msg, isErr){
+  const t = document.createElement('div');
+  t.className = 'toast' + (isErr?' err':'');
+  t.textContent = msg;
+  document.body.appendChild(t);
+  setTimeout(()=>t.remove(), 4200);
+}
+function estadosDisponibles(tipoKey, docs){
+  const cfg = TIPOS[tipoKey];
+  const base = (state.estadosCatalog && state.estadosCatalog[tipoKey]) || cfg.estadosSugeridos;
+  const set = new Set(base);
+  (docs||[]).forEach(d=> d.estado && set.add(d.estado));
+  return Array.from(set);
+}
+const ITEM_ESTADOS_SUGERIDOS = ['Sin gestionar','En revisión','Conforme','Con novedad'];
+function estadosDisponiblesItem(currentEstado){
+  const base = (state.estadosCatalog && state.estadosCatalog.item) || ITEM_ESTADOS_SUGERIDOS;
+  const set = new Set(base);
+  if (currentEstado) set.add(currentEstado);
+  return Array.from(set);
+}
+async function ensureEstadosCatalog(){
+  if (state.estadosCatalog) return state.estadosCatalog;
+  const defaults = { sc:[...TIPOS.sc.estadosSugeridos], oc:[...TIPOS.oc.estadosSugeridos], rar:[...TIPOS.rar.estadosSugeridos], fact:[...TIPOS.fact.estadosSugeridos], item:[...ITEM_ESTADOS_SUGERIDOS] };
+  if (!state.db){ state.estadosCatalog = defaults; return state.estadosCatalog; }
+  try{
+    const ref = state.db.doc('config/estados');
+    const snap = await ref.get();
+    if (snap.exists){ state.estadosCatalog = {...defaults, ...snap.data()}; }
+    else { state.estadosCatalog = defaults; await ref.set(toPlainJSON(defaults)); }
+  }catch(e){ console.error(e); state.estadosCatalog = defaults; }
+  return state.estadosCatalog;
+}
+// agrega estados nuevos (no vistos antes) al catálogo persistido, para ese tipo de documento ('sc'|'oc'|'rar'|'fact'|'item')
+async function addEstadosToCatalog(tipoKey, estados){
+  const nuevos = Array.from(new Set((estados||[]).filter(Boolean)));
+  if (!nuevos.length) return;
+  const cat = await ensureEstadosCatalog();
+  const merged = Array.from(new Set([...(cat[tipoKey]||[]), ...nuevos]));
+  if (merged.length === (cat[tipoKey]||[]).length) return; // nada nuevo
+  cat[tipoKey] = merged;
+  if (state.db){
+    try{ await state.db.doc('config/estados').update(toPlainJSON({[tipoKey]: merged})); }
+    catch(e){ try{ await state.db.doc('config/estados').set(toPlainJSON(cat)); }catch(e2){ console.error(e2); } }
+  }
+}
+function badge(estado){
+  const tone = TONE[estado] || 'neutral';
+  return `<span class="badge b-${tone}"><span class="d" style="background:currentColor"></span>${esc(estado||'—')}</span>`;
+}
+
+/* ============================================================
+   CAPACIDADES (db / downloads / user)
+   ============================================================ */
+async function initCapabilities(){
+  try {
+    if (window.claude && window.claude.use) {
+      state.db = await window.claude.use('db');
+      state.downloadsCap = await window.claude.use('downloads');
+      state.userCap = await window.claude.use('user');
+      if (state.userCap) state.me = await state.userCap.me();
+      await ensureEstadosCatalog();
+    }
+  } catch(e){ /* ignore */ }
+
+  const dbEl = document.getElementById('dbStatus');
+  if (state.db) { dbEl.textContent = 'Conectado · guardado automático'; }
+  else { dbEl.textContent = 'Sin conexión a almacenamiento — abre esta página publicada desde claude.ai'; dbEl.style.color = 'var(--bad)'; }
+
+  const nombreEl = document.getElementById('usuarioNombre');
+  const rolEl = document.getElementById('usuarioRol');
+  if (state.me && state.me.name){
+    nombreEl.textContent = state.me.name;
+    rolEl.textContent = state.me.isOwner ? ' (dueño)' : (state.me.canEdit ? ' (editor)' : ' (colaborador)');
+  } else {
+    nombreEl.textContent = 'Sin identificar';
+  }
+  applyPermisosUI();
+}
+
+function applyPermisosUI(){
+  // Importar solo para quien tiene nivel "editor" (Can edit) — el dueño lo es por defecto
+  const puedeImportar = !!(state.me && state.me.canEdit);
+  const navImportar = document.querySelector('.nav-item[data-route="importar"]');
+  if (navImportar) navImportar.style.display = puedeImportar ? '' : 'none';
+}
+
+// nombre a registrar en cada línea de bitácora: el de la cuenta de claude.ai con la que se entró
+function autorActual(){
+  if (state.me && state.me.name) return state.me.name;
+  return 'Sin nombre';
+}
+
+async function loadColeccion(coleccion){
+  if (!state.db) return [];
+  try {
+    const snap = await state.db.collection(coleccion).where('empresa','==', state.empresa).get();
+    const docs = snap.docs.map(d => ({...d.data(), _id: d.id}));
+    state.cache[coleccion] = docs;
+    return docs;
+  } catch(e){
+    console.error(e);
+    toast('No se pudo leer ' + coleccion + ': ' + (e.message||e.code||''), true);
+    return [];
+  }
+}
+
+async function getAllCached(coleccion){
+  if (state.cache[coleccion]) return state.cache[coleccion];
+  return await loadColeccion(coleccion);
+}
+
+/* ============================================================
+   ENLACE ENTRE DOCUMENTOS (por id de origen del Excel)
+   ============================================================ */
+// empresa=null busca en cualquiera de las 2 empresas (útil cuando aún no se sabe a cuál pertenece la fila)
+async function findByOrigen(coleccion, empresa, origenField, origenValue){
+  if (origenValue===null || origenValue===undefined || origenValue==='') return null;
+  if (!state.db) return null;
+  try{
+    let q = state.db.collection(coleccion).where('_origen_'+origenField, '==', String(origenValue));
+    if (empresa) q = q.where('empresa','==', empresa);
+    const snap = await q.limit(2).get();
+    if (snap.docs.length) return {...snap.docs[0].data(), _id: snap.docs[0].id};
+  }catch(e){ console.error(e); }
+  return null;
+}
+// busca la OC (cabecera) que contiene, en su detalle, un ítem con este id_oc_det
+async function findOcByDetId(empresa, idOcDet){
+  if (idOcDet===null || idOcDet===undefined || idOcDet==='') return null;
+  if (!state.db) return null;
+  try{
+    let q = state.db.collection('ordenes').where('_det_ids','array-contains', String(idOcDet));
+    if (empresa) q = q.where('empresa','==', empresa);
+    const snap = await q.limit(2).get();
+    if (snap.docs.length) return {...snap.docs[0].data(), _id: snap.docs[0].id};
+  }catch(e){ console.error(e); }
+  return null;
+}
+
+async function pushBackref(coleccion, docId, field, value){
+  if (!state.db) return;
+  const ref = state.db.collection(coleccion).doc(docId);
+  try{
+    const snap = await ref.get();
+    const cur = (snap.exists ? (snap.data()[field]||[]) : []);
+    if (!cur.includes(value)){
+      await ref.update({ [field]: [...cur, value] });
+    }
+  }catch(e){ console.error(e); }
+}
+
+/* ============================================================
+   RECEPCIÓN (RAR) APLICADA A LOS ÍTEMS DE OC
+   El estado/las cantidades del detalle de OC se calculan a partir
+   de las RAR relacionadas (vía id_oc_det), nunca se editan a mano.
+   ============================================================ */
+// índice: id_oc_det (string) -> {cant, valor} sumado desde todas las RAR de la empresa activa
+// ocId opcional: si se pasa, solo se suman las RAR realmente vinculadas a esa OC (rar.oc_id === ocId).
+// Esto evita que un id_oc_det coincidente de otra OC (colisión de ids) se cruce con el ítem equivocado.
+async function getRecepcionIndex(ocId){
+  const rarDocs = await getAllCached('recepciones');
+  const idx = {};
+  rarDocs.forEach(r=>{
+    if (ocId && r.oc_id !== ocId) return;
+    (r.detalle||[]).forEach(it=>{
+      const key = (it.id_oc_det!=null && it.id_oc_det!=='') ? String(it.id_oc_det) : null;
+      if (!key) return;
+      if (!idx[key]) idx[key] = { cant:0, valor:0 };
+      idx[key].cant += Number(it.cantidad_rar)||0;
+      idx[key].valor += Number(it.valor_total_item_rar)||0;
+    });
+  });
+  return idx;
+}
+function recepcionDeItem(it, recepIdx){
+  return (recepIdx && recepIdx[String(it.id_oc_det)]) || { cant:0, valor:0 };
+}
+function estadoRecepcionItem(it, recepIdx){
+  const rec = recepcionDeItem(it, recepIdx);
+  const cantOc = Number(it.cantidad_oc)||0;
+  if (rec.cant<=0) return 'Sin recepción';
+  if (rec.cant + 1e-6 >= cantOc) return 'Recepción total';
+  return 'Recepción parcial';
+}
+// una OC se considera "completa" cuando, para todos sus ítems, la cantidad Y el valor
+// recibidos (según las RAR relacionadas) igualan a lo ordenado
+function ocEstaCompleta(ocDoc, recepIdx){
+  const items = ocDoc.detalle||[];
+  if (!items.length) return false;
+  return items.every(it=>{
+    const rec = recepcionDeItem(it, recepIdx);
+    const cantOk = Math.abs((Number(it.cantidad_oc)||0) - rec.cant) < 0.01;
+    const valOk = Math.abs((Number(it.valor_total_item_oc)||0) - rec.valor) < 0.01;
+    return cantOk && valOk;
+  });
+}
+
+// moneda/valor originales de una OC: todos sus ítems comparten la misma moneda de origen;
+// la cabecera solo muestra la moneda (del primer ítem que la tenga) y la suma de los valores originales
+function ocOrigenAgregado(ocDoc){
+  const items = ocDoc.detalle||[];
+  const conMoneda = items.find(it=> it.moneda_original);
+  const total = items.reduce((s,it)=> s + (Number(it.valor_original)||0), 0);
+  return { moneda: conMoneda ? conMoneda.moneda_original : null, total };
+}
+
+/* ============================================================
+   IMPORTACIÓN DESDE EXCEL
+   ============================================================ */
+// detecta el tipo de documento mirando qué hojas trae el libro
+function detectTipo(workbook){
+  const names = workbook.SheetNames;
+  for (const key of Object.keys(TIPOS)){
+    const sh = TIPOS[key].sheets;
+    if (names.includes(sh.cab) && names.includes(sh.det)) return key;
+  }
+  return null;
+}
+
+function extractRows(sheet, expectedFirstCol){
+  if (!sheet) return [];
+  const rows = XLSX.utils.sheet_to_json(sheet, {header:1, raw:true, defval:null});
+  let headerIdx = rows.findIndex(r => r && r[0] !== null && String(r[0]).trim() === expectedFirstCol);
+  if (headerIdx === -1) return { error: `No se encontró la columna "${expectedFirstCol}" en la hoja.` };
+  const headers = rows[headerIdx].map(h => h==null ? '' : String(h).trim());
+  const data = [];
+  for (let i=headerIdx+1; i<rows.length; i++){
+    const r = rows[i];
+    if (!r || r.every(c=>c===null || c==='')) continue;
+    if (r[0]===null || r[0]==='') continue;
+    const obj = {};
+    headers.forEach((h,idx)=>{ if (h) obj[h] = (r[idx]===undefined ? null : r[idx]); });
+    data.push(obj);
+  }
+  return { rows: data };
+}
+
+async function parseWorkbookFile(wb, tipoKey){
+  const names = TIPOS[tipoKey].sheets;
+  const cabSheet = wb.Sheets[names.cab];
+  const detSheet = wb.Sheets[names.det];
+  if (!cabSheet) throw new Error(`No encontré la hoja "${names.cab}" en el archivo.`);
+  const cabRes = extractRows(cabSheet, TIPOS[tipoKey].cabCols[0]);
+  if (cabRes.error) throw new Error(cabRes.error);
+  const detRes = detSheet ? extractRows(detSheet, TIPOS[tipoKey].detCols[0]) : {rows:[]};
+  if (detRes.error) throw new Error(detRes.error);
+  return { cab: cabRes.rows, det: detRes.rows };
+}
+
+// agrupa detalle por el id de cabecera (dentro del mismo archivo)
+function groupDet(detRows, cabIdField){
+  const map = {};
+  detRows.forEach(r=>{
+    const k = String(r[cabIdField]);
+    (map[k] = map[k]||[]).push(r);
+  });
+  return map;
+}
+
+// intenta determinar la empresa de una fila de cabecera según el tipo de documento.
+// detalleRows: filas de detalle ya agrupadas para esta cabecera (se usan para el caso factura-sin-RAR).
+async function resolveEmpresa(tipoKey, row, detalleRows){
+  if (tipoKey==='sc' || tipoKey==='oc'){
+    const direct = mapSubsidiaria(row.subsidiaria);
+    if (direct) return direct;
+  }
+  if (tipoKey==='oc' && row.id_sc_cab){
+    const sc = await findByOrigen('solicitudes', null, 'id_sc_cab', row.id_sc_cab);
+    if (sc) return sc.empresa;
+  }
+  if (tipoKey==='rar' && row.id_oc_cab){
+    const oc = await findByOrigen('ordenes', null, 'id_oc_cab', row.id_oc_cab);
+    if (oc) return oc.empresa;
+  }
+  if (tipoKey==='fact'){
+    if (row.id_rar_cab){
+      const rar = await findByOrigen('recepciones', null, 'id_rar_cab', row.id_rar_cab);
+      if (rar) return rar.empresa;
+    }
+    // sin RAR (proceso manual): intenta resolver vía id_oc_det del detalle
+    const primerDet = (detalleRows||[]).find(dd=> dd.id_oc_det!=null);
+    if (primerDet){
+      const oc = await findOcByDetId(null, primerDet.id_oc_det);
+      if (oc) return oc.empresa;
+    }
+  }
+  return null;
+}
+
+// preserva estado/bitácora de cada ítem existente al reimportar, emparejando por su id estable de origen (id_xx_det)
+function mergeDetalle(existingDetalle, rawDetRows, cfg){
+  const detIdCol = cfg.detCols[0];
+  const existingByKey = {};
+  (existingDetalle||[]).forEach(it=>{ if (it[detIdCol]!=null) existingByKey[String(it[detIdCol])] = it; });
+  return rawDetRows.map(raw=>{
+    const o = {};
+    cfg.detCols.forEach(c=>{ if(c in raw) o[c]=raw[c]; });
+    const key = raw[detIdCol]!=null ? String(raw[detIdCol]) : null;
+    const prev = key!=null ? existingByKey[key] : null;
+    if (prev){
+      o.estado = prev.estado || 'Sin gestionar';
+      o.bitacora = prev.bitacora || [];
+      if (cfg.itemExtraFields) cfg.itemExtraFields.forEach(f=>{ if (prev[f.k]!=null) o[f.k] = prev[f.k]; });
+    } else {
+      o.estado = 'Sin gestionar';
+      o.bitacora = [{ fecha: new Date().toISOString(), autor:'Importación', tipo:'importacion', nota:'Ítem creado desde archivo Excel', estado_nuevo:'Sin gestionar' }];
+      if (cfg.itemExtraFields) cfg.itemExtraFields.forEach(f=>{ o[f.k] = null; });
+    }
+    return o;
+  });
+}
+
+async function runImport(tipoKey, cab, det, onProgress){
+  const cfg = TIPOS[tipoKey];
+  const cabIdCol = cfg.cabCols[0]; // id_xx_cab
+  const detGroupCol = cfg.detCols[1]; // segunda columna del detalle siempre es el id de cabecera
+  const detByCab = groupDet(det, detGroupCol);
+  await ensureEstadosCatalog();
+
+  let creados=0, actualizados=0, sinNumero=0, sinResolver=0;
+  const porEmpresa = { sabbag:0, ciclotron:0 };
+  const estadosNuevos = new Set();
+  for (const row of cab){
+    const numero = cfg.idFrom(row);
+    if (!numero){ sinNumero++; continue; }
+
+    const detalleRaw = detByCab[String(row[cabIdCol])] || [];
+    const empresa = await resolveEmpresa(tipoKey, row, detalleRaw);
+    if (!empresa){ sinResolver++; continue; }
+
+    const periodo = periodFrom(row[cfg.fechaField]);
+    const docId = empresa + '_' + tipoKey + '_' + periodo + '_' + slugId(numero);
+    const ref = state.db.collection(cfg.coleccion).doc(docId);
+    const existing = await ref.get();
+    const detalle = mergeDetalle(existing.exists ? existing.data().detalle : [], detalleRaw, cfg);
+
+    const payload = { empresa, tipo: tipoKey };
+    cfg.cabCols.forEach(c => payload[c] = (row[c]===undefined?null:row[c]));
+    payload['_origen_'+cabIdCol] = row[cabIdCol]!=null ? String(row[cabIdCol]) : null;
+    payload.detalle = detalle;
+    if (tipoKey==='oc') payload._det_ids = detalleRaw.map(dd=> dd.id_oc_det!=null ? String(dd.id_oc_det) : null).filter(Boolean);
+    payload.actualizado_en = new Date().toISOString();
+
+    // resolver enlace hacia el documento "padre" según el tipo
+    let vinculoNota = '';
+    if (tipoKey==='oc' && row.id_sc_cab){
+      const sc = await findByOrigen('solicitudes', empresa, 'id_sc_cab', row.id_sc_cab);
+      if (sc){ payload.sc_id = sc._id; vinculoNota = ` · vinculada a solicitud ${sc.nro_sc}`; await pushBackref('solicitudes', sc._id, 'oc_ids', docId); }
+      else { payload.sc_id = null; }
+    }
+    if (tipoKey==='rar' && row.id_oc_cab){
+      const oc = await findByOrigen('ordenes', empresa, 'id_oc_cab', row.id_oc_cab);
+      if (oc){ payload.oc_id = oc._id; vinculoNota = ` · vinculada a OC ${oc.nro_oc}`; await pushBackref('ordenes', oc._id, 'rar_ids', docId); }
+      else { payload.oc_id = null; }
+    }
+    if (tipoKey==='fact'){
+      payload.rar_id = null; payload.oc_id = null;
+      if (row.id_rar_cab){
+        const rar = await findByOrigen('recepciones', empresa, 'id_rar_cab', row.id_rar_cab);
+        if (rar){ payload.rar_id = rar._id; vinculoNota = ` · vinculada a RAR ${rar.nro_rar}`; await pushBackref('recepciones', rar._id, 'factura_ids', docId); }
+      }
+      if (!payload.rar_id){
+        // sin RAR: intenta ubicar la OC directamente vía id_oc_det del detalle (proceso manual)
+        const primerDet = detalleRaw.find(dd=> dd.id_oc_det!=null);
+        if (primerDet){
+          const oc = await findOcByDetId(empresa, primerDet.id_oc_det);
+          if (oc){ payload.oc_id = oc._id; vinculoNota = ` · vinculada a OC ${oc.nro_oc} (sin RAR, proceso manual)`; }
+        }
+      }
+    }
+
+    if (existing.exists){
+      const prevBit = existing.data().bitacora || [];
+      payload.bitacora = [...prevBit, { fecha: new Date().toISOString(), autor:'Importación', tipo:'importacion', nota: 'Actualizado desde archivo Excel' + vinculoNota }];
+      payload.estado = existing.data().estado; // conserva el estado gestionado en la app
+      await ref.update(toPlainJSON(payload));
+      actualizados++; porEmpresa[empresa]++;
+    } else {
+      const estadoCol = cfg.estadoCol;
+      const estadoExcel = estadoCol ? row[estadoCol] : null;
+      payload.estado = (estadoExcel && String(estadoExcel).trim()) ? String(estadoExcel).trim() : cfg.estadosSugeridos[0];
+      if (!(state.estadosCatalog[tipoKey]||[]).includes(payload.estado)) estadosNuevos.add(payload.estado);
+      payload.creado_en = new Date().toISOString();
+      payload.bitacora = [{ fecha: new Date().toISOString(), autor:'Importación', tipo:'importacion', nota: 'Creado desde archivo Excel' + vinculoNota, estado_nuevo: payload.estado }];
+      await ref.set(toPlainJSON(payload));
+      creados++; porEmpresa[empresa]++;
+    }
+    if (onProgress) onProgress(creados+actualizados, cab.length);
+  }
+  delete state.cache[cfg.coleccion];
+  if (estadosNuevos.size) await addEstadosToCatalog(tipoKey, Array.from(estadosNuevos));
+  return { creados, actualizados, sinNumero, sinResolver, total: cab.length, porEmpresa };
+}
+
+/* ============================================================
+   ROUTER
+   ============================================================ */
+function navigate(route, arg){
+  if (route==='importar' && !(state.me && state.me.canEdit)){
+    toast('Solo quien administra esta app puede importar bases.', true);
+    return;
+  }
+  state.route = route; state.routeArg = arg||null;
+  document.querySelectorAll('.nav-item').forEach(b=> b.classList.toggle('active', b.dataset.route===route));
+  render();
+  document.getElementById('content').scrollTo(0,0);
+}
+
+async function render(){
+  const el = document.getElementById('content');
+  el.innerHTML = '<div class="empty-state">Cargando…</div>';
+  try{
+    if (state.route==='dashboard') await renderDashboard(el);
+    else if (['sc','oc','rar','fact'].includes(state.route)) await renderList(el, state.route);
+    else if (state.route==='importar') renderImportar(el);
+    else if (state.route==='alistamiento') renderAlistamiento(el);
+  }catch(e){
+    console.error(e);
+    el.innerHTML = `<div class="empty-state"><div class="big">Ocurrió un error</div>${esc(e.message||String(e))}</div>`;
+  }
+}
+
+/* ---------------- DASHBOARD ---------------- */
+async function renderDashboard(el){
+  const [sc, oc, rar, fact] = await Promise.all([
+    getAllCached('solicitudes'), getAllCached('ordenes'), getAllCached('recepciones'), getAllCached('facturas')
+  ]);
+  const empresaLabel = EMPRESAS[state.empresa].label;
+
+  function estadoBreakdown(docs, cfg){
+    const counts = {};
+    docs.forEach(d=> counts[d.estado] = (counts[d.estado]||0)+1 );
+    return counts;
+  }
+  function miniBars(counts, total){
+    const colors = {ok:'var(--ok)', warn:'var(--warn)', bad:'var(--bad)', neutral:'var(--neutral)'};
+    if (!total) return '<div class="barmini"></div>';
+    return '<div class="barmini">' + Object.entries(counts).filter(([,n])=>n>0).map(([est,n])=>{
+      const tone = TONE[est]||'neutral';
+      return `<span style="width:${(n/total*100)}%;background:${colors[tone]}" title="${esc(est)}: ${n}"></span>`;
+    }).join('') + '</div>';
+  }
+
+  const valorOCAbiertas = oc.filter(o=>o.estado!=='Cerrada' && o.estado!=='Cancelada').reduce((s,o)=>s+(Number(o.valor_total)||0),0);
+  const valorFacturado = fact.reduce((s,f)=>s+(Number(f.valor_total_fact)||0),0);
+  const ocSinSolicitud = oc.filter(o=>!o.sc_id).length;
+  const factSinRar = fact.filter(f=>!f.rar_id).length;
+
+  const modulos = [
+    {tipo:'sc', label:'Solicitudes', docs:sc, cfg:TIPOS.sc},
+    {tipo:'oc', label:'Órdenes de Compra', docs:oc, cfg:TIPOS.oc},
+    {tipo:'rar', label:'Recepciones (RAR)', docs:rar, cfg:TIPOS.rar},
+    {tipo:'fact', label:'Facturación', docs:fact, cfg:TIPOS.fact},
+  ];
+
+  el.innerHTML = `
+    <div class="page-head">
+      <div><h1>Panel — ${esc(empresaLabel)}</h1><div class="sub">Estado general del proceso de compras</div></div>
+    </div>
+    <div class="kpi-row">
+      <div class="kpi"><div class="n">${sc.length}</div><div class="l">Solicitudes registradas</div></div>
+      <div class="kpi"><div class="n">${oc.length}</div><div class="l">Órdenes de compra</div></div>
+      <div class="kpi"><div class="n">${fmtMoney(valorOCAbiertas)}</div><div class="l">Valor en OC abiertas</div></div>
+      <div class="kpi"><div class="n">${fmtMoney(valorFacturado)}</div><div class="l">Total facturado</div></div>
+    </div>
+    ${(ocSinSolicitud||factSinRar) ? `<div class="warn-box">${ocSinSolicitud? ocSinSolicitud+' OC sin solicitud vinculada' : ''}${ocSinSolicitud&&factSinRar?' · ':''}${factSinRar? factSinRar+' facturas sin RAR (proceso manual, revisar vínculo a OC)':''}</div>` : ''}
+    <div class="card" style="padding:4px 0">
+      ${modulos.map(m=>{
+        const counts = estadoBreakdown(m.docs, m.cfg);
+        return `<div style="padding:14px 18px;border-bottom:1px solid var(--line);cursor:pointer" onclick="navigate('${m.tipo}')">
+          <div style="display:flex;justify-content:space-between;align-items:center">
+            <div style="font-weight:600;font-size:13.5px">${m.label}</div>
+            <div class="muted" style="font-size:12.5px">${m.docs.length} registros</div>
+          </div>
+          ${miniBars(counts, m.docs.length)}
+          <div style="margin-top:7px;display:flex;gap:12px;flex-wrap:wrap">
+            ${Object.entries(counts).filter(([,n])=>n>0).map(([e,n])=>`<span style="font-size:11.5px" class="muted">${esc(e)}: <b style="color:var(--ink)">${n}</b></span>`).join('')}
+          </div>
+        </div>`;
+      }).join('')}
+    </div>
+  `;
+  document.getElementById('sidebar').querySelectorAll('.nav-item[data-route]').forEach(b=>{});
+}
+
+/* ---------------- LISTADO ---------------- */
+async function renderList(el, tipoKey){
+  const cfg = TIPOS[tipoKey];
+  const docs = await getAllCached(cfg.coleccion);
+  const otraEmpresa = state.empresa==='sabbag' ? 'ciclotron' : 'sabbag';
+  let otroCount = 0;
+  if (state.db){
+    try{ const s = await state.db.collection(cfg.coleccion).where('empresa','==',otraEmpresa).get(); otroCount = s.docs.length; }catch(e){}
+  }
+
+  // adjuntar campos derivados para mostrar en la tabla
+  const scAll = tipoKey==='oc' ? await getAllCached('solicitudes') : [];
+  const ocAll = (tipoKey==='rar' || tipoKey==='sc') ? await getAllCached('ordenes') : [];
+  const rarAll = tipoKey==='fact' ? await getAllCached('recepciones') : [];
+
+  for (const d of docs){
+    d._itemCount = (d.detalle||[]).length;
+    d._ocCount = (d.oc_ids||[]).length;
+    if (tipoKey==='oc') d._scLabel = d.sc_id ? (scAll.find(s=>s._id===d.sc_id)?.nro_sc || d.sc_id) : '—';
+    if (tipoKey==='rar') d._ocLabel = d.oc_id ? (ocAll.find(o=>o._id===d.oc_id)?.nro_oc || d.oc_id) : '—';
+    if (tipoKey==='fact') d._rarLabel = d.rar_id ? ('RAR ' + (rarAll.find(r=>r._id===d.rar_id)?.nro_rar || d.rar_id)) : (d.oc_id ? 'Sin RAR (manual)' : 'Sin vincular');
+    if (tipoKey==='sc'){
+      const relOc = (d.oc_ids||[]).map(id=> ocAll.find(o=>o._id===id)).filter(Boolean);
+      let completas = 0;
+      for (const o of relOc){
+        const idx = await getRecepcionIndex(o._id); // acotado a cada OC — evita cruces por id_oc_det repetido entre OC
+        if (ocEstaCompleta(o, idx)) completas++;
+      }
+      d._ocCompletas = completas;
+      d._ocPendientes = relOc.length - completas;
+    }
+  }
+
+  el.innerHTML = `
+    <div class="page-head">
+      <div><h1>${cfg.plural}</h1><div class="sub">${EMPRESAS[state.empresa].label} · ${docs.length} registros — ${otroCount ? `${EMPRESAS[otraEmpresa].label}: ${otroCount} más (cambia de pestaña arriba)` : `${EMPRESAS[otraEmpresa].label}: sin registros`}</div></div>
+      <div class="actions">
+        <button class="btn" id="btnExport"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 3v12M7 10l5 5 5-5"/><path d="M4 19h16"/></svg>Exportar Excel</button>
+        ${(state.me && state.me.canEdit) ? `<button class="btn primary" onclick="navigate('importar')">Importar</button>` : ''}
+      </div>
+    </div>
+    <div class="filters">
+      <input type="text" id="fBuscar" placeholder="Buscar por número, proveedor, solicitante…">
+      <select id="fEstado"><option value="">Todos los estados</option>${estadosDisponibles(tipoKey, docs).map(e=>`<option>${esc(e)}</option>`).join('')}</select>
+    </div>
+    <div id="listWrap"></div>
+  `;
+
+  let sortState = { key: cfg.fechaField, dir: 'desc' };
+  function sortRows(rows){
+    const {key, dir} = sortState;
+    return rows.slice().sort((a,b)=>{
+      const av=a[key], bv=b[key];
+      const an=Number(av), bn=Number(bv);
+      let cmp;
+      if (av!=null && bv!=null && av!=='' && bv!=='' && !isNaN(an) && !isNaN(bn)) cmp = an-bn;
+      else cmp = String(av??'').localeCompare(String(bv??''), 'es');
+      return dir==='asc' ? cmp : -cmp;
+    });
+  }
+  function sortIndicator(key){
+    if (sortState.key!==key) return '';
+    return sortState.dir==='asc' ? ' ▲' : ' ▼';
+  }
+
+  function drawTable(){
+    const q = (document.getElementById('fBuscar').value||'').toLowerCase();
+    const est = document.getElementById('fEstado').value;
+    let rows = docs.filter(d=>{
+      if (est && d.estado!==est) return false;
+      if (!q) return true;
+      const hay = JSON.stringify(d).toLowerCase();
+      return hay.includes(q);
+    });
+    rows = sortRows(rows);
+    const wrap = document.getElementById('listWrap');
+    if (!rows.length){
+      wrap.innerHTML = `<div class="empty-state"><div class="big">No hay ${cfg.plural.toLowerCase()} para mostrar</div>Importa un archivo Excel para empezar a cargar registros.</div>`;
+      return;
+    }
+    wrap.innerHTML = `<div class="table-wrap"><table>
+      <thead><tr>
+        ${cfg.listCols.map(c=>`<th class="sortable" data-key="${esc(c.k)}">${esc(c.l)}${sortIndicator(c.k)}</th>`).join('')}
+        <th class="sortable" data-key="estado">Estado${sortIndicator('estado')}</th>
+        <th></th>
+      </tr></thead>
+      <tbody>${rows.map(d=>`
+        <tr onclick="openDocDetalleModal('${tipoKey}', '${esc(d._id)}')">
+          ${cfg.listCols.map(c=>{
+            let v = d[c.k];
+            if (c.fmt==='date') v = fmtDate(v); else if (c.fmt==='money') v = fmtMoney(v); else v = (v==null||v==='') ? '—' : esc(String(v));
+            return `<td class="${c.cls||''}">${v}</td>`;
+          }).join('')}
+          <td>${badge(d.estado)}</td>
+          <td class="item-actions-cell">
+            <div class="icon-actions">
+              <button class="icon-btn gestion" title="Gestionar (estado, novedad, bitácora)" onclick="event.stopPropagation(); openDocGestionModal('${tipoKey}', '${esc(d._id)}')">${ICON_GESTION}</button>
+              <span class="icon-divider"></span>
+              <button class="icon-btn ver" title="Ver detalle" onclick="event.stopPropagation(); openDocDetalleModal('${tipoKey}', '${esc(d._id)}')">${ICON_VER}</button>
+            </div>
+          </td>
+        </tr>`).join('')}
+      </tbody></table></div>
+      <div class="muted" style="margin-top:10px;font-size:12px">${rows.length} de ${docs.length} registros</div>`;
+    wrap.querySelectorAll('th.sortable').forEach(th=>{
+      th.addEventListener('click', ()=>{
+        const k = th.dataset.key;
+        if (sortState.key===k) sortState.dir = sortState.dir==='asc' ? 'desc' : 'asc';
+        else { sortState.key = k; sortState.dir = 'asc'; }
+        drawTable();
+      });
+    });
+  }
+  drawTable();
+  document.getElementById('fBuscar').addEventListener('input', drawTable);
+  document.getElementById('fEstado').addEventListener('change', drawTable);
+  document.getElementById('btnExport').addEventListener('click', ()=> exportList(tipoKey, docs));
+}
+
+async function exportList(tipoKey, docs){
+  const cfg = TIPOS[tipoKey];
+  const rows = docs.map(d=>{
+    const o = {};
+    cfg.cabCols.forEach(c=> o[c]=d[c]);
+    o.estado_app = d.estado;
+    if (tipoKey==='oc'){
+      const ag = ocOrigenAgregado(d);
+      o.moneda_original = ag.moneda || '';
+      o.valor_original = ag.total || '';
+    }
+    return o;
+  });
+  const ws = XLSX.utils.json_to_sheet(rows);
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, cfg.key);
+  const buf = XLSX.write(wb, {type:'array', bookType:'xlsx'});
+  const blob = new Blob([buf], {type:'application/octet-stream'});
+  try{
+    if (!state.downloadsCap){ toast('La descarga no está disponible en esta vista.', true); return; }
+    await state.downloadsCap.save({ filename: `${state.empresa}_${cfg.key}_export.xlsx`, data: blob });
+    toast('Archivo listo para guardar.');
+  }catch(e){ if(e && e.code!=='declined') toast('No se pudo generar el archivo.', true); }
+}
+
+/* ---------------- MODAL: DOCUMENTO (cabecera + detalle) ---------------- */
+function closeModal(){
+  document.getElementById('modalRoot').innerHTML = '';
+}
+function mountModal(innerHtml, wide){
+  const root = document.getElementById('modalRoot');
+  root.innerHTML = `<div class="modal-backdrop" id="modalBackdrop"><div class="modal ${wide?'wide':''}">${innerHtml}</div></div>`;
+  document.getElementById('modalBackdrop').addEventListener('click', (e)=>{ if (e.target.id==='modalBackdrop') closeModal(); });
+}
+
+// arma los chips de "documentos relacionados" para una cabecera, según su tipo
+async function relacionadosHTML(tipoKey, d){
+  let relacionados = '';
+  if (tipoKey==='sc' && (d.oc_ids||[]).length){
+    const ocAll = await getAllCached('ordenes');
+    relacionados += (d.oc_ids||[]).map(id=>{
+      const o = ocAll.find(x=>x._id===id);
+      return `<div class="rel-chip" onclick="openDocDetalleModal('oc', '${esc(id)}')"><span class="t">OC</span> ${esc(o? o.nro_oc : id)}</div>`;
+    }).join('');
+  }
+  if (tipoKey==='oc'){
+    if (d.sc_id){
+      const scAll = await getAllCached('solicitudes');
+      const s = scAll.find(x=>x._id===d.sc_id);
+      relacionados += `<div class="rel-chip" onclick="openDocDetalleModal('sc', '${esc(d.sc_id)}')"><span class="t">Solicitud</span> ${esc(s?s.nro_sc:d.sc_id)}</div>`;
+    }
+    if ((d.rar_ids||[]).length){
+      const rarAll = await getAllCached('recepciones');
+      relacionados += (d.rar_ids||[]).map(id=>{
+        const r = rarAll.find(x=>x._id===id);
+        return `<div class="rel-chip" onclick="openDocDetalleModal('rar', '${esc(id)}')"><span class="t">RAR</span> ${esc(r?r.nro_rar:id)}</div>`;
+      }).join('');
+    }
+  }
+  if (tipoKey==='rar'){
+    if (d.oc_id){
+      const ocAll = await getAllCached('ordenes');
+      const o = ocAll.find(x=>x._id===d.oc_id);
+      relacionados += `<div class="rel-chip" onclick="openDocDetalleModal('oc', '${esc(d.oc_id)}')"><span class="t">OC</span> ${esc(o?o.nro_oc:d.oc_id)}</div>`;
+    }
+    if ((d.factura_ids||[]).length){
+      const factAll = await getAllCached('facturas');
+      relacionados += (d.factura_ids||[]).map(id=>{
+        const f = factAll.find(x=>x._id===id);
+        return `<div class="rel-chip" onclick="openDocDetalleModal('fact', '${esc(id)}')"><span class="t">Factura</span> ${esc(f?(f.nro_fact_netsuite||f.nro_fact_proveedor):id)}</div>`;
+      }).join('');
+    }
+  }
+  if (tipoKey==='fact'){
+    if (d.rar_id){
+      const rarAll = await getAllCached('recepciones');
+      const r = rarAll.find(x=>x._id===d.rar_id);
+      relacionados += `<div class="rel-chip" onclick="openDocDetalleModal('rar', '${esc(d.rar_id)}')"><span class="t">RAR</span> ${esc(r?r.nro_rar:d.rar_id)}</div>`;
+    } else if (d.oc_id){
+      const ocAll = await getAllCached('ordenes');
+      const o = ocAll.find(x=>x._id===d.oc_id);
+      relacionados += `<div class="rel-chip" onclick="openDocDetalleModal('oc', '${esc(d.oc_id)}')"><span class="t">OC (vínculo manual)</span> ${esc(o?o.nro_oc:d.oc_id)}</div>`;
+    }
+  }
+  return relacionados;
+}
+
+/* ---- MODAL 1: GESTIÓN de la cabecera (Cambiar estado / Agregar novedad / Bitácora) ---- */
+async function openDocGestionModal(tipoKey, docId){
+  const cfg = TIPOS[tipoKey];
+  if (!state.db){ toast('Sin conexión al almacenamiento.', true); return; }
+  const snap = await state.db.collection(cfg.coleccion).doc(docId).get();
+  if (!snap.exists){ toast('No encontré ese registro.', true); return; }
+  const d = {...snap.data(), _id: docId};
+
+  mountModal(`
+    <div class="modal-head">
+      <div>
+        <div class="muted" style="font-size:12.5px;margin-bottom:2px">${esc(cfg.plural)} — gestión</div>
+        <h2 style="margin:0">${esc(cfg.singular)} ${esc(d[cfg.numField]||'')}</h2>
+      </div>
+      <div style="display:flex;align-items:center;gap:10px">
+        ${badge(d.estado)}
+        <button class="modal-close" id="btnCerrarGestionModal">✕</button>
+      </div>
+    </div>
+    <div class="detail-grid">
+      <div class="card side-card">
+        <h3>Cambiar estado</h3>
+        <select class="estado-select" id="selEstado">
+          ${estadosDisponibles(tipoKey, await getAllCached(cfg.coleccion)).map(e=>`<option ${e===d.estado?'selected':''}>${esc(e)}</option>`).join('')}
+          <option value="__otro__">+ Otro estado…</option>
+        </select>
+        <textarea class="nota-input" id="notaEstado" placeholder="Motivo del cambio (opcional)"></textarea>
+        <button class="btn primary" id="btnCambiarEstado" style="width:100%;justify-content:center">Guardar cambio de estado</button>
+      </div>
+      <div class="card side-card">
+        <h3>Agregar novedad</h3>
+        <textarea class="nota-input" id="notaLibre" placeholder="Escribe una novedad de seguimiento…"></textarea>
+        <button class="btn" id="btnAgregarNota" style="width:100%;justify-content:center">Guardar novedad</button>
+      </div>
+    </div>
+    <div class="card" style="margin-top:14px">
+      <div class="section-title">Bitácora</div>
+      <div class="timeline">
+        ${(d.bitacora||[]).slice().reverse().map(b=>`
+          <div class="tl-item">
+            <div class="tl-dot"></div>
+            <div class="tl-body">
+              ${esc(b.nota||'')}
+              ${b.estado_nuevo ? `<div style="margin-top:4px">${badge(b.estado_nuevo)}</div>`:''}
+              <div class="tl-meta">${esc(b.autor||'—')} · ${fmtDateTime(b.fecha)}</div>
+            </div>
+          </div>`).join('') || '<div class="muted" style="font-size:12.5px">Sin gestiones registradas aún.</div>'}
+      </div>
+    </div>
+    <div style="margin-top:14px">
+      <button class="btn ghost" id="btnVerDetalleDesdeGestion">Ver detalle completo →</button>
+    </div>
+  `, true);
+
+  document.getElementById('btnCerrarGestionModal').addEventListener('click', closeModal);
+  document.getElementById('btnVerDetalleDesdeGestion').addEventListener('click', ()=> openDocDetalleModal(tipoKey, docId));
+
+  document.getElementById('selEstado').addEventListener('change', (e)=>{
+    if (e.target.value === '__otro__'){
+      const custom = prompt('Escribe el nuevo estado:');
+      if (custom && custom.trim()){
+        const opt = document.createElement('option');
+        opt.value = custom.trim(); opt.textContent = custom.trim(); opt.selected = true;
+        e.target.insertBefore(opt, e.target.lastElementChild);
+      } else { e.target.value = d.estado; }
+    }
+  });
+  document.getElementById('btnCambiarEstado').addEventListener('click', async ()=>{
+    const nuevo = document.getElementById('selEstado').value;
+    if (nuevo === '__otro__'){ toast('Elige o escribe un estado válido.', true); return; }
+    const nota = document.getElementById('notaEstado') ? document.getElementById('notaEstado').value.trim() : '';
+    const autor = autorActual();
+    const entry = { fecha:new Date().toISOString(), autor, tipo:'estado', estado_anterior:d.estado, estado_nuevo:nuevo, nota: nota || `Estado cambiado de "${d.estado}" a "${nuevo}"` };
+    await state.db.collection(cfg.coleccion).doc(docId).update(toPlainJSON({ estado: nuevo, bitacora: [...(d.bitacora||[]), entry] }));
+    await addEstadosToCatalog(tipoKey, [nuevo]);
+    delete state.cache[cfg.coleccion];
+    toast('Estado actualizado.');
+    openDocGestionModal(tipoKey, docId);
+  });
+  document.getElementById('btnAgregarNota').addEventListener('click', async ()=>{
+    const nota = document.getElementById('notaLibre').value.trim();
+    if (!nota) return;
+    const autor = autorActual();
+    const entry = { fecha:new Date().toISOString(), autor, tipo:'nota', nota };
+    await state.db.collection(cfg.coleccion).doc(docId).update(toPlainJSON({ bitacora: [...(d.bitacora||[]), entry] }));
+    delete state.cache[cfg.coleccion];
+    toast('Novedad guardada.');
+    openDocGestionModal(tipoKey, docId);
+  });
+}
+
+/* ---- MODAL 2: DETALLE de la cabecera (Datos generales / Editar / Relacionados / Ítems) ---- */
+async function openDocDetalleModal(tipoKey, docId){
+  const cfg = TIPOS[tipoKey];
+  if (!state.db){ toast('Sin conexión al almacenamiento.', true); return; }
+  const snap = await state.db.collection(cfg.coleccion).doc(docId).get();
+  if (!snap.exists){ toast('No encontré ese registro.', true); return; }
+  const d = {...snap.data(), _id: docId};
+
+  const relacionados = await relacionadosHTML(tipoKey, d);
+  const vincularManual = (tipoKey==='fact' && !d.rar_id) ? `<button class="btn ghost" id="btnVincularOc" style="margin-top:2px">+ Vincular a una OC manualmente</button>` : '';
+
+  // para OC: el estado/las cantidades de cada ítem se calculan desde las RAR relacionadas (solo en memoria, para mostrar)
+  let recepIdx = null;
+  let ocAgregado = null;
+  if (tipoKey==='oc'){
+    try{
+      recepIdx = await getRecepcionIndex(docId);
+      (d.detalle||[]).forEach(it=>{
+        const rec = recepcionDeItem(it, recepIdx);
+        it._cantRecibida = rec.cant;
+        it._valorRecibido = rec.valor;
+        it._cantPendiente = Math.max(0, (Number(it.cantidad_oc)||0) - rec.cant);
+        it.estado = estadoRecepcionItem(it, recepIdx);
+      });
+      ocAgregado = ocOrigenAgregado(d);
+    }catch(e){
+      console.error('Error calculando recepción de la OC:', e);
+      toast('No se pudo calcular la recepción de esta OC (ver consola).', true);
+    }
+  }
+
+  // orden de la tabla de ítems (se conserva mientras el modal está abierto)
+  let itemSort = { key: null, dir: 'asc' };
+  const detIdCol = cfg.detCols[0];
+  const columnasDet = cfg.detCabLabel.map((k,i)=>({k, l:cfg.detHeaders[i]})).concat(cfg.extraDetCols||[]);
+
+  function itemsOrdenados(){
+    const items = (d.detalle||[]).slice();
+    if (!itemSort.key) return items;
+    return items.sort((a,b)=>{
+      const av=a[itemSort.key], bv=b[itemSort.key];
+      const an=Number(av), bn=Number(bv);
+      let cmp;
+      if (av!=null && bv!=null && av!=='' && bv!=='' && !isNaN(an) && !isNaN(bn)) cmp = an-bn;
+      else cmp = String(av??'').localeCompare(String(bv??''), 'es');
+      return itemSort.dir==='asc' ? cmp : -cmp;
+    });
+  }
+  function itemSortInd(key){ return itemSort.key===key ? (itemSort.dir==='asc'?' ▲':' ▼') : ''; }
+
+  function drawItemsTable(){
+    const wrap = document.getElementById('itemsTableWrap');
+    if (!wrap) return;
+    const items = itemsOrdenados();
+    wrap.innerHTML = `<table><thead><tr>
+        ${columnasDet.map(c=>`<th class="sortable" data-key="${esc(c.k)}">${esc(c.l)}${itemSortInd(c.k)}</th>`).join('')}
+        <th class="sortable" data-key="estado">Estado${itemSortInd('estado')}</th>
+        <th></th>
+      </tr></thead>
+      <tbody>${items.length ? items.map(it=>`<tr>${columnasDet.map(c=>{
+          if (c.k==='descripcion'){
+            const texto = (it[c.k]==null || it[c.k]==='') ? '' : String(it[c.k]);
+            if (!texto) return `<td class="muted">—</td>`;
+            return `<td><button class="icon-btn" title="Ver descripción completa" data-desc="${esc(texto)}" onclick="event.stopPropagation(); mostrarDescripcionTooltip(this)">${ICON_TEXTO}</button></td>`;
+          }
+          let v = it[c.k];
+          if (c.fmt==='money' || c.k.includes('valor')) v = fmtMoney(v); else v = (v==null||v==='')?'—':esc(String(v));
+          return `<td>${v}</td>`;
+        }).join('')}
+        <td>${badge(it.estado || 'Sin gestionar')}</td>
+        <td class="item-actions-cell"><button class="btn ghost" style="padding:4px 9px" onclick="openItemModal('${tipoKey}', '${esc(docId)}', '${esc(String(it[detIdCol]))}')">Gestionar</button></td>
+      </tr>`).join('') : `<tr><td colspan="${columnasDet.length+2}" class="muted">Sin ítems de detalle.</td></tr>`}</tbody></table>`;
+    wrap.querySelectorAll('th.sortable').forEach(th=>{
+      th.addEventListener('click', ()=>{
+        const k = th.dataset.key;
+        if (itemSort.key===k) itemSort.dir = itemSort.dir==='asc' ? 'desc' : 'asc';
+        else { itemSort.key = k; itemSort.dir = 'asc'; }
+        drawItemsTable();
+      });
+    });
+  }
+
+  const soloLectura = (k)=> k.startsWith('nro_') || k.startsWith('fecha_');
+
+  function fieldGridHTML(editing){
+    return cfg.cabFields.map(f=>{
+      const ro = soloLectura(f.k);
+      let v = d[f.k];
+      if (!editing || ro){
+        if (f.fmt==='date') v = fmtDate(v); else if (f.fmt==='money') v = fmtMoney(v); else v = (v==null||v==='')?'—':esc(String(v));
+        return `<div class="f" style="${f.wide?'grid-column:1/-1':''}"><label>${esc(f.l)}</label><div class="v">${v}</div></div>`;
+      }
+      const raw = (v==null)?'':v;
+      return `<div class="f editing" style="${f.wide?'grid-column:1/-1':''}"><label>${esc(f.l)}</label><input data-field="${esc(f.k)}" data-fmt="${f.fmt||''}" value="${esc(String(raw))}"></div>`;
+    }).join('');
+  }
+
+  mountModal(`
+    <div class="modal-head">
+      <div>
+        <div class="muted" style="font-size:12.5px;margin-bottom:2px">${esc(cfg.plural)}</div>
+        <h2 style="margin:0">${esc(cfg.singular)} ${esc(d[cfg.numField]||'')}</h2>
+      </div>
+      <div style="display:flex;align-items:center;gap:10px">
+        ${badge(d.estado)}
+        <button class="btn ghost" id="btnIrGestion" style="padding:5px 11px;color:#3E6FA3">${ICON_GESTION} Gestionar</button>
+        <button class="modal-close" id="btnCerrarModal">✕</button>
+      </div>
+    </div>
+    <div class="card">
+      <div class="section-title" style="display:flex;justify-content:space-between;align-items:center">
+        <span>Datos generales</span>
+        <button class="btn ghost" id="btnEditarInfo" style="padding:4px 10px">Editar información</button>
+      </div>
+      <div class="field-grid" id="fieldGrid">${fieldGridHTML(false)}</div>
+      <div id="editActions" style="display:none;padding:0 18px 14px;gap:8px">
+        <button class="btn primary" id="btnGuardarInfo">Guardar cambios</button>
+        <button class="btn ghost" id="btnCancelarInfo">Cancelar</button>
+      </div>
+      ${tipoKey==='oc' ? `<div class="field-grid" style="padding-top:0">
+        <div class="f"><label>Moneda original</label><div class="v">${esc(ocAgregado.moneda || '—')}</div></div>
+        <div class="f"><label>Valor original (total)</label><div class="v">${ocAgregado.total ? fmtMoney(ocAgregado.total) : '—'}</div></div>
+      </div>` : ''}
+      ${relacionados ? `<div class="section-title">Documentos relacionados</div><div style="padding:4px 18px 16px">${relacionados}${vincularManual}</div>` : (vincularManual?`<div class="section-title">Documentos relacionados</div><div style="padding:4px 18px 16px"><span class="muted" style="font-size:12.5px">Sin vincular todavía.</span><br>${vincularManual}</div>`:'')}
+      <div class="section-title">Detalle (${(d.detalle||[]).length} ítems)</div>
+      <div style="padding:0 18px 18px;overflow-x:auto" id="itemsTableWrap"></div>
+    </div>
+  `, true);
+
+  drawItemsTable();
+  document.getElementById('btnCerrarModal').addEventListener('click', closeModal);
+  document.getElementById('btnIrGestion').addEventListener('click', ()=> openDocGestionModal(tipoKey, docId));
+
+  document.getElementById('btnEditarInfo').addEventListener('click', ()=>{
+    document.getElementById('fieldGrid').innerHTML = fieldGridHTML(true);
+    document.getElementById('editActions').style.display = 'flex';
+    document.getElementById('btnEditarInfo').style.display = 'none';
+  });
+  document.getElementById('btnCancelarInfo').addEventListener('click', ()=>{
+    document.getElementById('fieldGrid').innerHTML = fieldGridHTML(false);
+    document.getElementById('editActions').style.display = 'none';
+    document.getElementById('btnEditarInfo').style.display = '';
+  });
+  document.getElementById('btnGuardarInfo').addEventListener('click', async ()=>{
+    const inputs = document.querySelectorAll('#fieldGrid input[data-field]');
+    const cambios = {}; const detalles = [];
+    inputs.forEach(inp=>{
+      const k = inp.dataset.field; const fmt = inp.dataset.fmt;
+      let nuevo = inp.value.trim();
+      if (fmt==='money') nuevo = Number(nuevo.replace(/[^0-9.-]/g,'')) || 0;
+      const anterior = d[k];
+      if (String(anterior??'') !== String(nuevo)){
+        cambios[k] = nuevo;
+        detalles.push(`${k}: "${anterior??''}" → "${nuevo}"`);
+      }
+    });
+    if (!Object.keys(cambios).length){
+      document.getElementById('fieldGrid').innerHTML = fieldGridHTML(false);
+      document.getElementById('editActions').style.display = 'none';
+      document.getElementById('btnEditarInfo').style.display = '';
+      return;
+    }
+    const autor = autorActual();
+    const entry = { fecha:new Date().toISOString(), autor, tipo:'edicion', nota:'Información modificada — ' + detalles.join('; ') };
+    cambios.bitacora = [...(d.bitacora||[]), entry];
+    await state.db.collection(cfg.coleccion).doc(docId).update(toPlainJSON(cambios));
+    delete state.cache[cfg.coleccion];
+    toast('Información actualizada.');
+    openDocDetalleModal(tipoKey, docId);
+  });
+  const btnVinc = document.getElementById('btnVincularOc');
+  if (btnVinc) btnVinc.addEventListener('click', async ()=>{
+    const ocAll = await getAllCached('ordenes');
+    const nro = prompt('N° de OC a la que quieres vincular esta factura:\n\n' + ocAll.map(o=>o.nro_oc).join(', '));
+    if (!nro) return;
+    const oc = ocAll.find(o=>String(o.nro_oc).trim()===nro.trim());
+    if (!oc){ toast('No encontré esa OC en ' + EMPRESAS[state.empresa].label, true); return; }
+    const autor = autorActual();
+    const entry = { fecha:new Date().toISOString(), autor, tipo:'vinculo', nota:`Vinculada manualmente a OC ${oc.nro_oc} (factura sin RAR — proceso manual)` };
+    await state.db.collection(cfg.coleccion).doc(docId).update(toPlainJSON({ oc_id: oc._id, bitacora:[...(d.bitacora||[]), entry] }));
+    delete state.cache[cfg.coleccion];
+    toast('Factura vinculada a la OC.');
+    openDocDetalleModal(tipoKey, docId);
+  });
+}
+
+/* ---------------- MODAL: ÍTEM (detalle) ---------------- */
+async function openItemModal(tipoKey, docId, itemId){
+  const cfg = TIPOS[tipoKey];
+  const snap = await state.db.collection(cfg.coleccion).doc(docId).get();
+  if (!snap.exists) return;
+  const d = {...snap.data(), _id: docId};
+  const detIdCol = cfg.detCols[0];
+  const idx = (d.detalle||[]).findIndex(it => String(it[detIdCol]) === String(itemId));
+  if (idx===-1){ toast('No encontré ese ítem.', true); return; }
+  const item = d.detalle[idx];
+
+  // en OC, el estado del ítem se calcula desde las RAR relacionadas — no se edita a mano
+  const esOc = tipoKey==='oc';
+  let recepcion = null;
+  if (esOc){
+    try{
+      const recepIdx = await getRecepcionIndex(docId);
+      const rec = recepcionDeItem(item, recepIdx);
+      recepcion = { cant: rec.cant, valor: rec.valor, pendiente: Math.max(0, (Number(item.cantidad_oc)||0) - rec.cant), estado: estadoRecepcionItem(item, recepIdx) };
+      item.estado = recepcion.estado; // solo para mostrar en este modal
+    }catch(e){
+      console.error('Error calculando recepción del ítem:', e);
+      toast('No se pudo calcular la recepción de este ítem (ver consola).', true);
+    }
+  }
+
+  function fieldsHTML(editing){
+    let html = cfg.detCabLabel.map((k,i)=>{
+      let v = item[k];
+      if (!editing){
+        if (k.includes('valor')) v = fmtMoney(v); else v = (v==null||v==='')?'—':esc(String(v));
+        return `<div class="f"><label>${esc(cfg.detHeaders[i])}</label><div class="v">${v}</div></div>`;
+      }
+      return `<div class="f editing"><label>${esc(cfg.detHeaders[i])}</label><input data-field="${esc(k)}" value="${esc(String(v??''))}"></div>`;
+    }).join('');
+    if (cfg.itemExtraFields){
+      html += cfg.itemExtraFields.map(f=>{
+        let v = item[f.k];
+        if (!editing){
+          const shown = (v==null || v==='') ? '—' : (f.type==='money' ? fmtMoney(v) : esc(String(v)));
+          return `<div class="f"><label>${esc(f.l)}</label><div class="v">${shown}</div></div>`;
+        }
+        if (f.type==='select'){
+          const opts = f.options||[];
+          return `<div class="f editing"><label>${esc(f.l)}</label><select data-field="${esc(f.k)}">
+            <option value="">— Elegir —</option>
+            ${opts.map(o=>`<option value="${esc(o)}" ${String(v??'')===o?'selected':''}>${esc(o)}</option>`).join('')}
+          </select></div>`;
+        }
+        return `<div class="f editing"><label>${esc(f.l)}</label><input data-field="${esc(f.k)}" value="${esc(v==null?'':String(v))}"></div>`;
+      }).join('');
+    }
+    return html;
+  }
+
+  mountModal(`
+    <div class="modal-head">
+      <div>
+        <div class="muted" style="font-size:12.5px;margin-bottom:2px">${esc(cfg.singular)} ${esc(d[cfg.numField]||'')} — ítem</div>
+        <h2 style="margin:0">${esc(item.item_articulo || 'Ítem')}</h2>
+      </div>
+      <div style="display:flex;align-items:center;gap:10px">
+        ${badge(item.estado || 'Sin gestionar')}
+        <button class="modal-close" id="btnCerrarItemModal">✕</button>
+      </div>
+    </div>
+    <div class="card">
+      <div class="section-title" style="display:flex;justify-content:space-between;align-items:center">
+        <span>Datos del ítem</span>
+        <button class="btn ghost" id="btnEditarItem" style="padding:4px 10px">Editar</button>
+      </div>
+      <div class="field-grid" id="itemFieldGrid">${fieldsHTML(false)}</div>
+      <div id="itemEditActions" style="display:none;padding:0 18px 14px;gap:8px">
+        <button class="btn primary" id="btnGuardarItem">Guardar cambios</button>
+        <button class="btn ghost" id="btnCancelarItem">Cancelar</button>
+      </div>
+    </div>
+    <div class="detail-grid" style="margin-top:14px">
+      <div class="card side-card">
+        <h3>${esOc ? 'Estado de recepción (según RAR)' : 'Cambiar estado del ítem'}</h3>
+        ${esOc ? `
+          <div class="field-grid" style="padding:0;grid-template-columns:1fr 1fr">
+            <div class="f"><label>Cant. recibida</label><div class="v">${esc(String(recepcion.cant))}</div></div>
+            <div class="f"><label>Vlr. recibido</label><div class="v">${fmtMoney(recepcion.valor)}</div></div>
+            <div class="f"><label>Cant. pendiente</label><div class="v">${esc(String(recepcion.pendiente))}</div></div>
+            <div class="f"><label>Estado</label><div class="v">${badge(recepcion.estado)}</div></div>
+          </div>
+          <div class="muted" style="font-size:11.5px;margin-top:8px">Se calcula automáticamente a partir de las RAR vinculadas a este ítem de OC — no se puede cambiar a mano.</div>
+        ` : `
+          <select class="estado-select" id="selEstadoItem">
+            ${estadosDisponiblesItem(item.estado).map(e=>`<option ${e===(item.estado||'Sin gestionar')?'selected':''}>${esc(e)}</option>`).join('')}
+            <option value="__otro__">+ Otro estado…</option>
+          </select>
+          <button class="btn primary" id="btnGuardarEstadoItem" style="width:100%;justify-content:center">Guardar</button>
+        `}
+      </div>
+      <div class="card side-card">
+        <h3>Agregar novedad al ítem</h3>
+        <textarea class="nota-input" id="notaItem" placeholder="Escribe una novedad sobre este ítem…"></textarea>
+        <button class="btn" id="btnAgregarNotaItem" style="width:100%;justify-content:center">Guardar novedad</button>
+      </div>
+    </div>
+    <div class="card" style="margin-top:14px">
+      <div class="section-title">Bitácora del ítem</div>
+      <div class="timeline">
+        ${(item.bitacora||[]).slice().reverse().map(b=>`
+          <div class="tl-item"><div class="tl-dot"></div><div class="tl-body">
+            ${esc(b.nota||'')}
+            ${b.estado_nuevo ? `<div style="margin-top:4px">${badge(b.estado_nuevo)}</div>`:''}
+            <div class="tl-meta">${esc(b.autor||'—')} · ${fmtDateTime(b.fecha)}</div>
+          </div></div>`).join('') || '<div class="muted" style="font-size:12.5px">Sin gestiones registradas aún para este ítem.</div>'}
+      </div>
+    </div>
+    <div style="margin-top:14px">
+      <button class="btn ghost" id="btnVolverCab">← Volver a ${esc(cfg.singular)} ${esc(d[cfg.numField]||'')}</button>
+    </div>
+  `, true);
+
+  async function guardarItem(cambios, notaBitacora, opts){
+    const nuevoDetalle = d.detalle.slice();
+    nuevoDetalle[idx] = { ...nuevoDetalle[idx], ...cambios };
+    if (notaBitacora){
+      const autor = autorActual();
+      const entry = { fecha:new Date().toISOString(), autor, ...notaBitacora };
+      nuevoDetalle[idx].bitacora = [...(nuevoDetalle[idx].bitacora||[]), entry];
+    }
+    await state.db.collection(cfg.coleccion).doc(docId).update(toPlainJSON({ detalle: nuevoDetalle }));
+    delete state.cache[cfg.coleccion];
+    if (opts && opts.msg) toast(opts.msg);
+    openItemModal(tipoKey, docId, itemId);
+  }
+
+  document.getElementById('btnCerrarItemModal').addEventListener('click', closeModal);
+  document.getElementById('btnVolverCab').addEventListener('click', ()=> openDocDetalleModal(tipoKey, docId));
+  document.getElementById('btnEditarItem').addEventListener('click', ()=>{
+    document.getElementById('itemFieldGrid').innerHTML = fieldsHTML(true);
+    document.getElementById('itemEditActions').style.display = 'flex';
+    document.getElementById('btnEditarItem').style.display = 'none';
+  });
+  document.getElementById('btnCancelarItem').addEventListener('click', ()=>{
+    document.getElementById('itemFieldGrid').innerHTML = fieldsHTML(false);
+    document.getElementById('itemEditActions').style.display = 'none';
+    document.getElementById('btnEditarItem').style.display = '';
+  });
+  document.getElementById('btnGuardarItem').addEventListener('click', async ()=>{
+    const inputs = document.querySelectorAll('#itemFieldGrid input[data-field], #itemFieldGrid select[data-field]');
+    const cambios = {}; const detalles = [];
+    inputs.forEach(inp=>{
+      const k = inp.dataset.field;
+      let nuevo = inp.value.trim();
+      if (inp.tagName==='SELECT' && nuevo===''){ nuevo = null; }
+      else if (k.includes('valor') || k.includes('cantidad')) nuevo = Number(nuevo.replace(/[^0-9.-]/g,'')) || 0;
+      const anterior = item[k];
+      if (String(anterior??'') !== String(nuevo??'')){ cambios[k]=nuevo; detalles.push(`${k}: "${anterior??''}" → "${nuevo??''}"`); }
+    });
+    if (!Object.keys(cambios).length){ document.getElementById('itemFieldGrid').innerHTML = fieldsHTML(false); document.getElementById('itemEditActions').style.display='none'; document.getElementById('btnEditarItem').style.display=''; return; }
+    await guardarItem(cambios, { tipo:'edicion', nota:'Ítem modificado — '+detalles.join('; ') }, { msg:'Ítem actualizado.' });
+  });
+  const selEstadoItem = document.getElementById('selEstadoItem');
+  if (selEstadoItem) selEstadoItem.addEventListener('change', (e)=>{
+    if (e.target.value==='__otro__'){
+      const custom = prompt('Escribe el nuevo estado para este ítem:');
+      if (custom && custom.trim()){
+        const opt = document.createElement('option'); opt.value=custom.trim(); opt.textContent=custom.trim(); opt.selected=true;
+        e.target.insertBefore(opt, e.target.lastElementChild);
+      } else { e.target.value = item.estado || 'Sin gestionar'; }
+    }
+  });
+  const btnGuardarEstadoItem = document.getElementById('btnGuardarEstadoItem');
+  if (btnGuardarEstadoItem) btnGuardarEstadoItem.addEventListener('click', async ()=>{
+    const nuevo = document.getElementById('selEstadoItem').value;
+    if (nuevo==='__otro__'){ toast('Elige o escribe un estado válido.', true); return; }
+    await addEstadosToCatalog('item', [nuevo]);
+    await guardarItem({ estado: nuevo }, { tipo:'estado', estado_anterior: item.estado||'Sin gestionar', estado_nuevo: nuevo, nota:`Estado del ítem cambiado a "${nuevo}"` }, { msg:'Estado del ítem actualizado.' });
+  });
+  document.getElementById('btnAgregarNotaItem').addEventListener('click', async ()=>{
+    const nota = document.getElementById('notaItem').value.trim();
+    if (!nota) return;
+    await guardarItem({}, { tipo:'nota', nota }, { msg:'Novedad guardada.' });
+  });
+}
+
+
+/* ---------------- ALISTAMIENTO DE FACTURAS (placeholder) ---------------- */
+function renderAlistamiento(el){
+  el.innerHTML = `
+    <div class="page-head"><div><h1>Alistamiento de facturas</h1><div class="sub">Entrega de facturas físicas de proveedores a Contabilidad</div></div></div>
+    <div class="empty-state" style="padding:70px 20px">
+      <div class="big">Próximamente</div>
+      Aquí vas a poder llevar el registro y la entrega de las facturas recibidas de proveedores hacia Contabilidad, conectado con el módulo de Facturación.
+    </div>
+  `;
+}
+
+/* ---------------- PANEL DE ESTADOS (crear estados nuevos por tipo) ---------------- */
+const ESTADOS_TIPO_LABEL = { sc:'Solicitudes', oc:'Órdenes de Compra', rar:'Recepciones (RAR)', fact:'Facturación', item:'Ítems (todos los tipos)' };
+
+async function renderEstadosPanel(){
+  const panel = document.getElementById('estadosPanel');
+  if (!panel) return;
+  const cat = await ensureEstadosCatalog();
+  panel.innerHTML = Object.keys(ESTADOS_TIPO_LABEL).map(k=>`
+    <div style="margin-bottom:16px">
+      <div style="font-weight:700;font-size:13px;margin-bottom:6px">${esc(ESTADOS_TIPO_LABEL[k])}</div>
+      <div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:8px">
+        ${(cat[k]||[]).map(e=>badge(e)).join('')}
+      </div>
+      <div style="display:flex;gap:8px">
+        <input type="text" id="nuevoEstado_${k}" placeholder="Nombre del estado nuevo…" style="flex:1;border:1px solid var(--line);border-radius:8px;padding:7px 10px;font-size:12.5px;font-family:inherit">
+        <button class="btn" data-tipo="${k}" data-action="addEstado" style="padding:7px 12px">Agregar</button>
+      </div>
+    </div>
+  `).join('');
+  panel.querySelectorAll('button[data-action="addEstado"]').forEach(btn=>{
+    btn.addEventListener('click', async ()=>{
+      const k = btn.dataset.tipo;
+      const input = document.getElementById('nuevoEstado_'+k);
+      const val = input.value.trim();
+      if (!val) return;
+      await addEstadosToCatalog(k, [val]);
+      input.value = '';
+      toast('Estado agregado.');
+      renderEstadosPanel();
+    });
+  });
+}
+
+/* ---------------- IMPORTAR ---------------- */
+const TIPO_ORDEN = ['sc','oc','rar','fact']; // orden de procesamiento: primero lo que otros documentos necesitan enlazar
+
+function renderImportar(el){
+  el.innerHTML = `
+    <div class="page-head"><div><h1>Importar desde Excel</h1><div class="sub">Arrastra uno o varios archivos — la app detecta sola el tipo de documento y la empresa de cada fila (por "subsidiaria")</div></div></div>
+    <div class="card" style="padding:20px;max-width:680px">
+      <div class="drop" id="dropZone">
+        <input type="file" id="fileInput" accept=".xlsx,.xls" multiple>
+        <div id="dropLabel">Arrastra aquí uno o varios archivos .xlsx (Solicitudes, OC, RAR, Facturas — de cualquier mes), o haz clic para elegirlos</div>
+      </div>
+      <div id="fileList" style="margin-top:12px;font-size:12.8px"></div>
+      <div id="impResult"></div>
+      <button class="btn primary" id="btnImportar" style="margin-top:14px" disabled>Importar todo</button>
+    </div>
+
+    <div class="page-head" style="margin-top:32px"><div><h1 style="font-size:17px">Estados</h1><div class="sub">Crea estados nuevos para cada tipo de documento o para los ítems — quedan disponibles de inmediato en los selectores</div></div></div>
+    <div class="card" style="padding:20px;max-width:680px" id="estadosPanel"></div>
+  `;
+  renderEstadosPanel();
+  const drop = document.getElementById('dropZone');
+  const input = document.getElementById('fileInput');
+  const btn = document.getElementById('btnImportar');
+  let files = [];
+
+  function showFiles(){
+    document.getElementById('fileList').innerHTML = files.length
+      ? files.map(f=>`<div>• ${esc(f.name)}</div>`).join('')
+      : '';
+    btn.disabled = files.length===0;
+    document.getElementById('dropLabel').textContent = files.length
+      ? `${files.length} archivo(s) listo(s) — puedes seguir agregando o hacer clic en "Importar todo"`
+      : 'Arrastra aquí uno o varios archivos .xlsx (Solicitudes, OC, RAR, Facturas — de cualquier mes), o haz clic para elegirlos';
+  }
+  drop.addEventListener('click', ()=> input.click());
+  drop.addEventListener('dragover', e=>{ e.preventDefault(); drop.classList.add('over'); });
+  drop.addEventListener('dragleave', ()=> drop.classList.remove('over'));
+  drop.addEventListener('drop', e=>{
+    e.preventDefault(); drop.classList.remove('over');
+    files = files.concat(Array.from(e.dataTransfer.files));
+    showFiles();
+  });
+  input.addEventListener('change', ()=>{
+    files = files.concat(Array.from(input.files));
+    showFiles();
+  });
+
+  btn.addEventListener('click', async ()=>{
+    if (!files.length) return;
+    if (!state.db){ toast('Sin conexión al almacenamiento.', true); return; }
+    btn.disabled = true; btn.textContent = 'Leyendo archivos…';
+    const resultsEl = document.getElementById('impResult');
+    resultsEl.innerHTML = '';
+
+    // 1) leer y clasificar cada archivo por tipo de documento (según sus hojas)
+    const items = [];
+    for (const file of files){
+      try{
+        const buf = await file.arrayBuffer();
+        const wb = XLSX.read(buf, {type:'array', cellDates:true});
+        const tipoKey = detectTipo(wb);
+        if (!tipoKey){ items.push({name:file.name, error:'No reconocí las hojas de este archivo (se esperaba cab_xx/det_xx).'}); continue; }
+        const { cab, det } = await parseWorkbookFile(wb, tipoKey);
+        items.push({name:file.name, tipoKey, cab, det});
+      }catch(e){
+        items.push({name:file.name, error: e.message||String(e)});
+      }
+    }
+
+    // 2) procesar en orden: SC, luego OC, luego RAR, luego Facturas (para maximizar los enlaces)
+    items.sort((a,b)=>{
+      const ia = a.tipoKey ? TIPO_ORDEN.indexOf(a.tipoKey) : 99;
+      const ib = b.tipoKey ? TIPO_ORDEN.indexOf(b.tipoKey) : 99;
+      if (ia!==ib) return ia-ib;
+      return a.name.localeCompare(b.name);
+    });
+
+    const resumen = [];
+    let totalSinResolver = 0;
+    for (const it of items){
+      if (it.error){ resumen.push({name:it.name, error:it.error}); continue; }
+      btn.textContent = `Importando ${it.name}…`;
+      try{
+        const res = await runImport(it.tipoKey, it.cab, it.det);
+        totalSinResolver += res.sinResolver;
+        resumen.push({name:it.name, tipoKey:it.tipoKey, res});
+      }catch(e){
+        resumen.push({name:it.name, error: e.message||String(e)});
+      }
+    }
+
+    resultsEl.innerHTML = `<div class="import-summary">
+      ${resumen.map(r=>{
+        if (r.error) return `<div style="color:var(--bad)">✕ ${esc(r.name)}: ${esc(r.error)}</div>`;
+        const p = r.res;
+        return `<div>✓ ${esc(r.name)} — <b>${TIPOS[r.tipoKey].plural}</b>: ${p.creados} creados, ${p.actualizados} actualizados${p.sinNumero?`, ${p.sinNumero} sin número`:''}${p.sinResolver?`, <span style="color:var(--warn)">${p.sinResolver} sin resolver empresa/vínculo</span>`:''}
+          <div class="muted" style="font-size:11.5px;margin:2px 0 6px 14px">Sabbag: ${p.porEmpresa.sabbag} · Ciclotron: ${p.porEmpresa.ciclotron}</div>
+        </div>`;
+      }).join('')}
+      ${totalSinResolver ? `<div style="margin-top:8px;color:var(--warn)">Hay ${totalSinResolver} fila(s) que no se pudieron ubicar en Sabbag o Ciclotron todavía — normalmente porque el documento del que dependen (Solicitud u OC) aún no se ha importado. Vuelve a importar ese mismo archivo después de cargar sus documentos relacionados.</div>` : ''}
+    </div>`;
+    toast('Importación completada.');
+    state.cache = {};
+    files = [];
+    btn.disabled = false; btn.textContent = 'Importar todo';
+    showFiles();
+  });
+}
+
+/* ============================================================
+   EVENTOS GLOBALES / ARRANQUE
+   ============================================================ */
+document.querySelectorAll('.nav-item[data-route]').forEach(b=>{
+  b.addEventListener('click', ()=> navigate(b.dataset.route));
+});
+document.querySelectorAll('.nav-group-head').forEach(h=>{
+  h.addEventListener('click', ()=>{
+    const grp = document.getElementById('group-'+h.dataset.group);
+    const open = grp.style.display !== 'none';
+    grp.style.display = open ? 'none' : '';
+    h.classList.toggle('active', !open);
+  });
+});
+document.getElementById('companySwitch').querySelectorAll('.company-btn').forEach(b=>{
+  b.addEventListener('click', ()=>{
+    state.empresa = b.dataset.c;
+    localStorage.setItem('compras_empresa', state.empresa);
+    updateCompanyUI();
+    state.cache = {};
+    render();
+  });
+});
+if (localStorage.getItem('compras_sidebar_collapsed')==='1') document.body.classList.add('sidebar-collapsed');
+document.getElementById('sidebarToggle').addEventListener('click', ()=>{
+  document.body.classList.toggle('sidebar-collapsed');
+  localStorage.setItem('compras_sidebar_collapsed', document.body.classList.contains('sidebar-collapsed') ? '1' : '0');
+});
+function updateCompanyUI(){
+  document.querySelectorAll('.company-btn').forEach(b=> b.classList.toggle('active', b.dataset.c===state.empresa));
+}
+
+(async function start(){
+  updateCompanyUI();
+  document.querySelector('.nav-item[data-route="dashboard"]').classList.add('active');
+  await initCapabilities();
+  // si intenta entrar directo a Importar sin permiso, lo manda al panel
+  if (state.route==='importar' && !(state.me && state.me.canEdit)) state.route='dashboard';
+  render();
+})();
+</script>
+</body>
+</html>
