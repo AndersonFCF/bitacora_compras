@@ -201,7 +201,7 @@
 <body>
 <div id="shell">
   <div id="sidebar">
-    <div class="brand">Bitácora de Compras<small>Sabbag · Ciclotron · build 2026-09-26-v17</small></div>
+    <div class="brand">Bitácora de Compras<small>Sabbag · Ciclotron · build 2026-09-29-v21</small></div>
 
     <button class="nav-group-head active" data-group="compras">
       <svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 6l6 6-6 6"/></svg>
@@ -311,6 +311,8 @@ const TONE = {
   'Registrada':'neutral', 'Enviada a contabilidad':'warn',
   // negativo
   'Rechazada':'bad', 'Cancelada':'bad', 'Anulada':'bad',
+  // validación de pago (OC)
+  'Sin factura':'neutral', 'Sin pago':'warn', 'Anticipo':'warn', 'Pagado':'ok', 'Mayor pago':'bad',
 };
 
 const TIPOS = {
@@ -345,12 +347,14 @@ const TIPOS = {
     numField:'nro_oc', fechaField:'fecha_oc', estadoCol:'estado_oc',
     sheets:{cab:'cab_oc', det:'det_oc'},
     estadosSugeridos: ['Pendiente aprobación','Aprobada','Recepción parcial','Totalmente facturada','Cerrada','Cancelada'],
-    cabCols: ['id_oc_cab','nro_oc','id_sc_cab','fecha_oc','proveedor','subsidiaria','nota','valor_total','quien_aprueba','estado_oc'],
+    cabCols: ['id_oc_cab','nro_oc','id_sc_cab','fecha_oc','proveedor','subsidiaria','nota','valor_total','pago_realizado','quien_aprueba','estado_oc'],
     detCols: ['id_oc_det','id_oc_cab','id_sc_det','nro_oc','item_articulo','cantidad_oc','valor_unit_antes_iva','valor_antes_iva','iva_%','valor_total_item_oc','departamento','subdepartamento','ubicacion','descripcion'],
     cabFields: [
       {k:'nro_oc', l:'N° OC'}, {k:'fecha_oc', l:'Fecha', fmt:'date'},
       {k:'proveedor', l:'Proveedor'}, {k:'quien_aprueba', l:'Aprueba'},
       {k:'valor_total', l:'Valor total', fmt:'money'},
+      {k:'pago_realizado', l:'Valor pagado', fmt:'money'},
+      {k:'_validacionPago', l:'Validación pago'},
       {k:'nota', l:'Nota', wide:true},
     ],
     detCabLabel: ['item_articulo','cantidad_oc','valor_unit_antes_iva','valor_antes_iva','iva_%','valor_total_item_oc'],
@@ -371,6 +375,8 @@ const TIPOS = {
       {k:'fecha_oc', l:'Fecha', fmt:'date'},
       {k:'proveedor', l:'Proveedor'},
       {k:'valor_total', l:'Valor total', fmt:'money'},
+      {k:'pago_realizado', l:'Valor pagado', fmt:'money'},
+      {k:'_validacionPago', l:'Validación pago'},
       {k:'_scLabel', l:'Solicitud'},
     ],
     idFrom: (cab)=> cab.nro_oc,
@@ -381,10 +387,12 @@ const TIPOS = {
     numField:'nro_rar', fechaField:'fecha_rar', estadoCol:null,
     sheets:{cab:'cab_rar', det:'det_rar'},
     estadosSugeridos: ['Registrada','Recepción parcial','Recepción completa'],
-    cabCols: ['id_rar_cab','id_oc_cab','nro_rar','fecha_rar','quien_recepciona','valor_total_rar'],
+    cabCols: ['id_rar_cab','id_oc_cab','nro_rar','fecha_rar','nro_fact_proveedor','quien_recepciona','valor_total_rar'],
     detCols: ['id_rar_det','id_rar_cab','id_oc_det','nro_rar','item_articulo','cantidad_rar','valor_unit_rar_antes_iva','valor_rar_antes_iva','iva_%','valor_iva_rar','valor_total_item_rar'],
     cabFields: [
       {k:'nro_rar', l:'N° RAR'}, {k:'fecha_rar', l:'Fecha', fmt:'date'},
+      {k:'_proveedor', l:'Proveedor'},
+      {k:'nro_fact_proveedor', l:'N° Factura proveedor'},
       {k:'quien_recepciona', l:'Recepciona'},
       {k:'valor_total_rar', l:'Valor total', fmt:'money'},
     ],
@@ -393,6 +401,8 @@ const TIPOS = {
     listCols: [
       {k:'nro_rar', l:'N° RAR', cls:'num'},
       {k:'fecha_rar', l:'Fecha', fmt:'date'},
+      {k:'_proveedor', l:'Proveedor'},
+      {k:'nro_fact_proveedor', l:'N° Fact. proveedor'},
       {k:'quien_recepciona', l:'Recepciona'},
       {k:'valor_total_rar', l:'Valor total', fmt:'money'},
       {k:'_ocLabel', l:'OC'},
@@ -405,20 +415,26 @@ const TIPOS = {
     numField:'nro_fact_netsuite', fechaField:'fecha_fact_netsuite', estadoCol:null,
     sheets:{cab:'cab_fact', det:'det_fact'},
     estadosSugeridos: ['Registrada','Enviada a contabilidad','Pagada','Anulada'],
-    cabCols: ['id_fact_cab','id_rar_cab','nro_fact_proveedor','nro_fact_netsuite','fecha_fact_netsuite','quien_factura','valor_fact_antes_iva','iva_fact','valor_total_fact','suma_retencion','valor_pago'],
-    detCols: ['id_fact_det','id_fact_cab','id_rar_det','id_oc_det','nro_fact_netsuite','item_articulo','cantidad_fact','valor_fact_antes_iva','iva_fact','valor_total_fact','suma_retencion','valor_pago'],
+    cabCols: ['id_fact_cab','id_rar_cab','nro_fact_proveedor','fecha_fact_proveedor','nro_fact_netsuite','fecha_fact_netsuite','quien_factura','valor_fact_antes_iva','iva_fact','valor_total_fact','suma_retencion','valor_a_pagar'],
+    detCols: ['id_fact_det','id_fact_cab','id_rar_det','id_oc_det','nro_fact_netsuite','item_articulo','cantidad_fact','valor_fact_antes_iva','iva_fact','valor_total_fact','suma_retencion','valor_a_pagar'],
     cabFields: [
       {k:'nro_fact_netsuite', l:'N° Factura (Netsuite)'}, {k:'nro_fact_proveedor', l:'N° Factura proveedor'},
+      {k:'fecha_fact_proveedor', l:'Fecha factura proveedor', fmt:'date'},
       {k:'fecha_fact_netsuite', l:'Fecha', fmt:'date'}, {k:'quien_factura', l:'Registrada por'},
-      {k:'valor_total_fact', l:'Valor total', fmt:'money'}, {k:'valor_pago', l:'Valor a pagar', fmt:'money'},
+      {k:'_proveedor', l:'Proveedor'},
+      {k:'valor_total_fact', l:'Valor total', fmt:'money'}, {k:'valor_a_pagar', l:'Valor a pagar', fmt:'money'},
       {k:'suma_retencion', l:'Retención', fmt:'money'},
     ],
-    detCabLabel: ['item_articulo','cantidad_fact','valor_fact_antes_iva','iva_fact','valor_total_fact'],
-    detHeaders: ['Artículo','Cant.','Vlr. antes IVA','IVA','Vlr. total'],
+    detCabLabel: ['item_articulo','cantidad_fact','valor_fact_antes_iva','iva_fact','valor_total_fact','valor_a_pagar'],
+    detHeaders: ['Artículo','Cant.','Vlr. antes IVA','IVA','Vlr. total','Vlr. a pagar'],
     listCols: [
       {k:'nro_fact_netsuite', l:'N° Factura', cls:'num'},
+      {k:'nro_fact_proveedor', l:'N° Fact. proveedor'},
+      {k:'fecha_fact_proveedor', l:'Fecha fact. proveedor', fmt:'date'},
       {k:'fecha_fact_netsuite', l:'Fecha', fmt:'date'},
+      {k:'_proveedor', l:'Proveedor'},
       {k:'valor_total_fact', l:'Valor total', fmt:'money'},
+      {k:'valor_a_pagar', l:'Valor a pagar', fmt:'money'},
       {k:'_rarLabel', l:'RAR / OC'},
     ],
     idFrom: (cab)=> cab.nro_fact_netsuite || cab.nro_fact_proveedor,
@@ -474,6 +490,10 @@ function toPlainJSON(v){
   return JSON.parse(JSON.stringify(v));
 }
 function esc(s){ return String(s==null?'':s).replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+// devuelve siempre un array: protege contra un documento con 'detalle' corrupto (no-array) que,
+// sin esto, rompería con una excepción todo cálculo que recorra varios documentos a la vez
+// (p. ej. el índice de recepción de TODAS las RAR de la empresa) por culpa de un solo registro dañado.
+function arr(v){ return Array.isArray(v) ? v : []; }
 function toast(msg, isErr){
   const t = document.createElement('div');
   t.className = 'toast' + (isErr?' err':'');
@@ -639,7 +659,7 @@ async function getRecepcionIndex(ocId){
   const idx = {};
   rarDocs.forEach(r=>{
     if (ocId && r.oc_id !== ocId) return;
-    (r.detalle||[]).forEach(it=>{
+    arr(r.detalle).forEach(it=>{
       const key = (it.id_oc_det!=null && it.id_oc_det!=='') ? String(it.id_oc_det) : null;
       if (!key) return;
       if (!idx[key]) idx[key] = { cant:0, valor:0 };
@@ -662,7 +682,7 @@ function estadoRecepcionItem(it, recepIdx){
 // una OC se considera "completa" cuando, para todos sus ítems, la cantidad Y el valor
 // recibidos (según las RAR relacionadas) igualan a lo ordenado
 function ocEstaCompleta(ocDoc, recepIdx){
-  const items = ocDoc.detalle||[];
+  const items = arr(ocDoc.detalle);
   if (!items.length) return false;
   return items.every(it=>{
     const rec = recepcionDeItem(it, recepIdx);
@@ -675,10 +695,61 @@ function ocEstaCompleta(ocDoc, recepIdx){
 // moneda/valor originales de una OC: todos sus ítems comparten la misma moneda de origen;
 // la cabecera solo muestra la moneda (del primer ítem que la tenga) y la suma de los valores originales
 function ocOrigenAgregado(ocDoc){
-  const items = ocDoc.detalle||[];
+  const items = arr(ocDoc.detalle);
   const conMoneda = items.find(it=> it.moneda_original);
   const total = items.reduce((s,it)=> s + (Number(it.valor_original)||0), 0);
   return { moneda: conMoneda ? conMoneda.moneda_original : null, total };
+}
+
+/* ============================================================
+   PROVEEDOR (derivado): RAR y Factura no traen su propio proveedor,
+   se hereda de la OC de origen siguiendo el enlace (Factura -> RAR -> OC,
+   o Factura -> OC directo si fue vinculada manualmente sin RAR)
+   ============================================================ */
+async function resolverProveedor(tipoKey, d){
+  if (tipoKey==='oc') return d.proveedor || null;
+  if (tipoKey==='rar'){
+    if (!d.oc_id || !state.db) return null;
+    const snap = await state.db.collection('ordenes').doc(d.oc_id).get();
+    return snap.exists ? (snap.data().proveedor || null) : null;
+  }
+  if (tipoKey==='fact'){
+    if (!state.db) return null;
+    let ocId = d.oc_id || null;
+    if (!ocId && d.rar_id){
+      const rarSnap = await state.db.collection('recepciones').doc(d.rar_id).get();
+      if (rarSnap.exists) ocId = rarSnap.data().oc_id || null;
+    }
+    if (!ocId) return null;
+    const ocSnap = await state.db.collection('ordenes').doc(ocId).get();
+    return ocSnap.exists ? (ocSnap.data().proveedor || null) : null;
+  }
+  return null;
+}
+
+/* ============================================================
+   VALIDACIÓN DE PAGO (OC): compara lo pagado (pago_realizado, del Excel
+   de OC) contra lo que indican las facturas asociadas (valor_a_pagar),
+   siguiendo el enlace OC -> RAR -> Factura
+   ============================================================ */
+async function facturasDeOC(ocId){
+  if (!state.db || !ocId) return [];
+  const rarAll = await getAllCached('recepciones');
+  const rarIds = rarAll.filter(r=> r.oc_id===ocId).map(r=> r._id);
+  if (!rarIds.length) return [];
+  const factAll = await getAllCached('facturas');
+  return factAll.filter(f=> f.rar_id && rarIds.includes(f.rar_id));
+}
+function validacionPago(ocDoc, facturas){
+  const raw = ocDoc.pago_realizado;
+  const pagadoNum = Number(raw);
+  const p = (raw==null || raw==='' || isNaN(pagadoNum)) ? 0 : pagadoNum;
+  if (!facturas.length) return 'Sin factura';
+  if (p <= 0) return 'Sin pago';
+  const aPagar = facturas.reduce((s,f)=> s + (Number(f.valor_a_pagar)||0), 0);
+  if (Math.abs(p - aPagar) < 0.01) return 'Pagado';
+  if (p < aPagar) return 'Anticipo';
+  return 'Mayor pago';
 }
 
 /* ============================================================
@@ -768,7 +839,7 @@ async function resolveEmpresa(tipoKey, row, detalleRows){
 function mergeDetalle(existingDetalle, rawDetRows, cfg){
   const detIdCol = cfg.detCols[0];
   const existingByKey = {};
-  (existingDetalle||[]).forEach(it=>{ if (it[detIdCol]!=null) existingByKey[String(it[detIdCol])] = it; });
+  arr(existingDetalle).forEach(it=>{ if (it[detIdCol]!=null) existingByKey[String(it[detIdCol])] = it; });
   return rawDetRows.map(raw=>{
     const o = {};
     cfg.detCols.forEach(c=>{ if(c in raw) o[c]=raw[c]; });
@@ -847,9 +918,20 @@ async function runImport(tipoKey, cab, det, onProgress){
     }
 
     if (existing.exists){
-      const prevBit = existing.data().bitacora || [];
-      payload.bitacora = [...prevBit, { fecha: new Date().toISOString(), autor:'Importación', tipo:'importacion', nota: 'Actualizado desde archivo Excel' + vinculoNota }];
-      payload.estado = existing.data().estado; // conserva el estado gestionado en la app
+      const prevData = existing.data();
+      const prevBit = prevData.bitacora || [];
+      let notaExtra = [{ fecha: new Date().toISOString(), autor:'Importación', tipo:'importacion', nota: 'Actualizado desde archivo Excel' + vinculoNota }];
+      // OC: si el valor pagado cambió respecto a la importación anterior, deja registro en la bitácora
+      if (tipoKey==='oc'){
+        const antes = (prevData.pago_realizado==null || prevData.pago_realizado==='') ? null : Number(prevData.pago_realizado);
+        const ahora = (payload.pago_realizado==null || payload.pago_realizado==='') ? null : Number(payload.pago_realizado);
+        const cambioValido = (antes==null && ahora!=null) || (antes!=null && ahora==null) || (antes!=null && ahora!=null && Math.abs(antes-ahora)>=0.01);
+        if (cambioValido){
+          notaExtra.push({ fecha: new Date().toISOString(), autor:'Importación', tipo:'cambio_valor_pagado', nota:`Cambió valor pagado: ${fmtMoney(antes)} → ${fmtMoney(ahora)}`, valor_anterior: antes, valor_nuevo: ahora });
+        }
+      }
+      payload.bitacora = [...prevBit, ...notaExtra];
+      payload.estado = prevData.estado; // conserva el estado gestionado en la app
       await ref.update(toPlainJSON(payload));
       actualizados++; porEmpresa[empresa]++;
     } else {
@@ -972,15 +1054,24 @@ async function renderList(el, tipoKey){
 
   // adjuntar campos derivados para mostrar en la tabla
   const scAll = tipoKey==='oc' ? await getAllCached('solicitudes') : [];
-  const ocAll = (tipoKey==='rar' || tipoKey==='sc') ? await getAllCached('ordenes') : [];
-  const rarAll = tipoKey==='fact' ? await getAllCached('recepciones') : [];
+  const ocAll = (tipoKey==='rar' || tipoKey==='sc' || tipoKey==='fact') ? await getAllCached('ordenes') : [];
+  const rarAll = (tipoKey==='fact') ? await getAllCached('recepciones') : [];
+  const factAll = (tipoKey==='oc') ? await getAllCached('facturas') : [];
 
   for (const d of docs){
-    d._itemCount = (d.detalle||[]).length;
+    d._itemCount = arr(d.detalle).length;
     d._ocCount = (d.oc_ids||[]).length;
     if (tipoKey==='oc') d._scLabel = d.sc_id ? (scAll.find(s=>s._id===d.sc_id)?.nro_sc || d.sc_id) : '—';
-    if (tipoKey==='rar') d._ocLabel = d.oc_id ? (ocAll.find(o=>o._id===d.oc_id)?.nro_oc || d.oc_id) : '—';
-    if (tipoKey==='fact') d._rarLabel = d.rar_id ? ('RAR ' + (rarAll.find(r=>r._id===d.rar_id)?.nro_rar || d.rar_id)) : (d.oc_id ? 'Sin RAR (manual)' : 'Sin vincular');
+    if (tipoKey==='rar'){
+      d._ocLabel = d.oc_id ? (ocAll.find(o=>o._id===d.oc_id)?.nro_oc || d.oc_id) : '—';
+      d._proveedor = d.oc_id ? (ocAll.find(o=>o._id===d.oc_id)?.proveedor || '—') : '—';
+    }
+    if (tipoKey==='fact'){
+      d._rarLabel = d.rar_id ? ('RAR ' + (rarAll.find(r=>r._id===d.rar_id)?.nro_rar || d.rar_id)) : (d.oc_id ? 'Sin RAR (manual)' : 'Sin vincular');
+      let ocId = d.oc_id || null;
+      if (!ocId && d.rar_id){ const r = rarAll.find(x=>x._id===d.rar_id); ocId = r ? r.oc_id : null; }
+      d._proveedor = ocId ? (ocAll.find(o=>o._id===ocId)?.proveedor || '—') : '—';
+    }
     if (tipoKey==='sc'){
       const relOc = (d.oc_ids||[]).map(id=> ocAll.find(o=>o._id===id)).filter(Boolean);
       let completas = 0;
@@ -990,6 +1081,11 @@ async function renderList(el, tipoKey){
       }
       d._ocCompletas = completas;
       d._ocPendientes = relOc.length - completas;
+    }
+    if (tipoKey==='oc'){
+      const rarDeOc = (await getAllCached('recepciones')).filter(r=> r.oc_id===d._id).map(r=> r._id);
+      const facturas = factAll.filter(f=> f.rar_id && rarDeOc.includes(f.rar_id));
+      d._validacionPago = validacionPago(d, facturas);
     }
   }
 
@@ -1050,7 +1146,8 @@ async function renderList(el, tipoKey){
         <tr onclick="openDocDetalleModal('${tipoKey}', '${esc(d._id)}')">
           ${cfg.listCols.map(c=>{
             let v = d[c.k];
-            if (c.fmt==='date') v = fmtDate(v); else if (c.fmt==='money') v = fmtMoney(v); else v = (v==null||v==='') ? '—' : esc(String(v));
+            if (c.k==='_validacionPago') v = badge(v);
+            else if (c.fmt==='date') v = fmtDate(v); else if (c.fmt==='money') v = fmtMoney(v); else v = (v==null||v==='') ? '—' : esc(String(v));
             return `<td class="${c.cls||''}">${v}</td>`;
           }).join('')}
           <td>${badge(d.estado)}</td>
@@ -1274,7 +1371,11 @@ async function openDocDetalleModal(tipoKey, docId){
   if (tipoKey==='oc'){
     try{
       recepIdx = await getRecepcionIndex(docId);
-      (d.detalle||[]).forEach(it=>{
+      // los ítems que llegan del snapshot pueden ser inmutables (no se puede asignar
+      // directamente sobre ellos); por eso se reemplaza d.detalle por copias nuevas
+      // ANTES de escribir los campos calculados, o la asignación se pierde en silencio.
+      d.detalle = arr(d.detalle).map(it => ({...it}));
+      d.detalle.forEach(it=>{
         const rec = recepcionDeItem(it, recepIdx);
         it._cantRecibida = rec.cant;
         it._valorRecibido = rec.valor;
@@ -1286,6 +1387,13 @@ async function openDocDetalleModal(tipoKey, docId){
       console.error('Error calculando recepción de la OC:', e);
       toast('No se pudo calcular la recepción de esta OC (ver consola).', true);
     }
+    try{
+      const facturas = await facturasDeOC(docId);
+      d._validacionPago = validacionPago(d, facturas);
+    }catch(e){ console.error('Error calculando validación de pago:', e); }
+  }
+  if (tipoKey==='rar' || tipoKey==='fact'){
+    try{ d._proveedor = await resolverProveedor(tipoKey, d); }catch(e){ console.error('Error resolviendo proveedor:', e); }
   }
 
   // orden de la tabla de ítems (se conserva mientras el modal está abierto)
@@ -1294,7 +1402,7 @@ async function openDocDetalleModal(tipoKey, docId){
   const columnasDet = cfg.detCabLabel.map((k,i)=>({k, l:cfg.detHeaders[i]})).concat(cfg.extraDetCols||[]);
 
   function itemsOrdenados(){
-    const items = (d.detalle||[]).slice();
+    const items = arr(d.detalle).slice();
     if (!itemSort.key) return items;
     return items.sort((a,b)=>{
       const av=a[itemSort.key], bv=b[itemSort.key];
@@ -1339,14 +1447,15 @@ async function openDocDetalleModal(tipoKey, docId){
     });
   }
 
-  const soloLectura = (k)=> k.startsWith('nro_') || k.startsWith('fecha_');
+  const soloLectura = (k)=> k.startsWith('nro_') || k.startsWith('fecha_') || k.startsWith('_');
 
   function fieldGridHTML(editing){
     return cfg.cabFields.map(f=>{
       const ro = soloLectura(f.k);
       let v = d[f.k];
       if (!editing || ro){
-        if (f.fmt==='date') v = fmtDate(v); else if (f.fmt==='money') v = fmtMoney(v); else v = (v==null||v==='')?'—':esc(String(v));
+        if (f.k==='_validacionPago') v = badge(v || 'Sin factura');
+        else if (f.fmt==='date') v = fmtDate(v); else if (f.fmt==='money') v = fmtMoney(v); else v = (v==null||v==='')?'—':esc(String(v));
         return `<div class="f" style="${f.wide?'grid-column:1/-1':''}"><label>${esc(f.l)}</label><div class="v">${v}</div></div>`;
       }
       const raw = (v==null)?'':v;
@@ -1381,7 +1490,7 @@ async function openDocDetalleModal(tipoKey, docId){
         <div class="f"><label>Valor original (total)</label><div class="v">${ocAgregado.total ? fmtMoney(ocAgregado.total) : '—'}</div></div>
       </div>` : ''}
       ${relacionados ? `<div class="section-title">Documentos relacionados</div><div style="padding:4px 18px 16px">${relacionados}${vincularManual}</div>` : (vincularManual?`<div class="section-title">Documentos relacionados</div><div style="padding:4px 18px 16px"><span class="muted" style="font-size:12.5px">Sin vincular todavía.</span><br>${vincularManual}</div>`:'')}
-      <div class="section-title">Detalle (${(d.detalle||[]).length} ítems)</div>
+      <div class="section-title">Detalle (${arr(d.detalle).length} ítems)</div>
       <div style="padding:0 18px 18px;overflow-x:auto" id="itemsTableWrap"></div>
     </div>
   `, true);
@@ -1450,9 +1559,10 @@ async function openItemModal(tipoKey, docId, itemId){
   if (!snap.exists) return;
   const d = {...snap.data(), _id: docId};
   const detIdCol = cfg.detCols[0];
-  const idx = (d.detalle||[]).findIndex(it => String(it[detIdCol]) === String(itemId));
+  const idx = arr(d.detalle).findIndex(it => String(it[detIdCol]) === String(itemId));
   if (idx===-1){ toast('No encontré ese ítem.', true); return; }
-  const item = d.detalle[idx];
+  // copia nueva: los ítems del snapshot pueden ser inmutables, y más abajo se le asigna item.estado
+  const item = {...d.detalle[idx]};
 
   // en OC, el estado del ítem se calcula desde las RAR relacionadas — no se edita a mano
   const esOc = tipoKey==='oc';
@@ -1562,7 +1672,7 @@ async function openItemModal(tipoKey, docId, itemId){
   `, true);
 
   async function guardarItem(cambios, notaBitacora, opts){
-    const nuevoDetalle = d.detalle.slice();
+    const nuevoDetalle = arr(d.detalle).slice();
     nuevoDetalle[idx] = { ...nuevoDetalle[idx], ...cambios };
     if (notaBitacora){
       const autor = autorActual();
